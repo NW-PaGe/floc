@@ -59,8 +59,11 @@ def assign_to_cluster(
         for clabel, cinfo in mh_merged.items():
             local_map = {qid: qinfo} | cinfo
             d = _merged_distance(qid, clabel, mh_map=local_map, cache=merged_dist_cache)
-            # Keep the closest cluster within the threshold
-            if d < threshold and d < best_dist:
+            # Keep the closest cluster within the threshold; break ties by
+            # taking the cluster label that sorts first alphabetically
+            if d >= threshold:
+                continue
+            if d < best_dist or (d == best_dist and clabel < best_cluster):
                 best_dist = d
                 best_cluster = clabel
 
