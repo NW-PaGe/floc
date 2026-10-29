@@ -93,7 +93,7 @@ def main(argv=None):
                 if len(fx_keys) != len(mh_fx):
                     failed = '\n\t'.join([sid for sid in fx_keys if sid not in mh_fx]) + '\n'
                     logging.error(f"One or more sample failed QC. Remove them to continue or re-run with '--ignore-qc':\n\n\t{failed}")
-                    exit()
+                    sys.exit(1)
 
         # --- If there are existing clusters, group them ---
         if mh_sig:
