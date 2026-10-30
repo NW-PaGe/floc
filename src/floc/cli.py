@@ -35,6 +35,13 @@ def build_parser():
     p.add_argument("--overwrite", action="store_true", help="Overwrite existing signature files")
     p.add_argument("--plot", dest="plot", action="store_true", help="Create PCoA and NJ tree plots. Can take a long time with many samples.")
     p.add_argument("--pairwise", action="store_true", help="Compute pairwise distance matrix for each cluster with a new sample.")
+    p.add_argument(
+        "--assign-metric", choices=["query", "min", "max", "avg"], default="avg",
+        help="Containment used to assign new samples to existing clusters, comparing each "
+             "sample with the merged sketch of each cluster: 'query' = fraction of the "
+             "sample's hashes in the cluster (behaviour in v1.0); 'min', 'max' or "
+             "'avg' of that and the fraction of the cluster's hashes in the sample (default)."
+    )
     p.add_argument("--version", action="version", version=__version__)
     return p
 
@@ -106,7 +113,8 @@ def main(argv=None):
         # --- Assign new samples to clusters ---
         if mh_clust:
             logger.info("Assigning new sequences to existing clusters...")
-            assigned, remainder = assign_to_cluster(mh_fx, mh_clust, args.distance)
+            assigned, remainder = assign_to_cluster(mh_fx, mh_clust, args.distance,
+                                                    metric=args.assign_metric)
             logger.info(f"Assigned {len(assigned)} sequences; {len(remainder)} unassigned remain.")
 
             # IMPORTANT: merge assigned into mh_clust so they appear in outputs
