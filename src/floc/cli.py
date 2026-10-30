@@ -9,8 +9,7 @@ from .io_ops import parse_input, write_cluster_csv
 from .sm_ops import DistanceCache, build_minhash_map, load_minhash_map, write_sigs
 from .cluster import group_clusters, assign_to_cluster, create_new_clusters, pcoa_plot, nj_tree, calculate_cluster_distances
 from .qc import global_containment
-
-__version__ = "1.0"
+from . import __version__
 
 
 def build_parser():
@@ -39,7 +38,7 @@ def build_parser():
         "--assign-metric", choices=["query", "min", "max", "avg"], default="avg",
         help="Containment used to assign new samples to existing clusters, comparing each "
              "sample with the merged sketch of each cluster: 'query' = fraction of the "
-             "sample's hashes in the cluster (behaviour in v1.0); 'min', 'max' or "
+             "sample's hashes in the cluster (the default before v1.2.1); 'min', 'max' or "
              "'avg' of that and the fraction of the cluster's hashes in the sample (default)."
     )
     p.add_argument("--version", action="version", version=__version__)

@@ -1,6 +1,10 @@
-from pathlib import Path
-import subprocess, sys
+import subprocess
+import sys
 
-def test_cli_help():
-    r = subprocess.run([sys.executable, "-m", "floc", "--version"], capture_output=True)
+from floc import __version__
+
+
+def test_cli_version():
+    r = subprocess.run([sys.executable, "-m", "floc", "--version"], capture_output=True, text=True)
     assert r.returncode == 0
+    assert r.stdout.strip() == __version__

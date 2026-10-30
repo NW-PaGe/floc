@@ -6,7 +6,7 @@ Floc is an iterative genome clustering tool. Genome assemblies are placed into n
 ## Installation
 ### From source
 ```
-git clone https://github.com/DOH-JDJ0303/floc
+git clone https://github.com/NW-PaGe/floc
 conda create -n floc python=3.11
 conda activate floc
 pip install "setuptools<70" wheel
@@ -16,14 +16,15 @@ pip install --no-build-isolation floc/
 ### With Docker
 ```
 docker run --rm -v "$PWD":/work -w /work \
-    public.ecr.aws/o8h2f0o1/floc:1.1 \
+    public.ecr.aws/o8h2f0o1/floc:1.2.1 \
     floc --help
 ```
 
 ## Usage
 ```
-usage: floc [-h] [-o OUTDIR] [-d DISTANCE] [--ksize KSIZE] [--scaled SCALED] [--batch BATCH] [--ignore-qc] [--skip-qc] [--min-hash-freq MIN_HASH_FREQ] [--min-hash-frac MIN_HASH_FRAC] [--overwrite] [--plot] [--pairwise]
-            [--version]
+usage: floc [-h] [-o OUTDIR] [-d DISTANCE] [--ksize KSIZE] [--scaled SCALED] [--batch BATCH] [--ignore-qc] [--skip-qc]
+            [--min-hash-freq MIN_HASH_FREQ] [--min-hash-frac MIN_HASH_FRAC] [--overwrite] [--plot] [--pairwise]
+            [--assign-metric {query,min,max,avg}] [--version]
             input [input ...]
 
 floc: Genomic clustering tool for population-level surveillance
@@ -33,8 +34,9 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
-  -o, --outdir OUTDIR   Output directory
-  -d, --distance DISTANCE
+  -o OUTDIR, --outdir OUTDIR
+                        Output directory
+  -d DISTANCE, --distance DISTANCE
                         Distance threshold used to create clusters (default: 0.03)
   --ksize KSIZE         k-mer size
   --scaled SCALED       Scaling factor for signatures
@@ -46,8 +48,13 @@ options:
   --min-hash-frac MIN_HASH_FRAC
                         Minimum fraction of sample hashes shared with the global hashes after filtering
   --overwrite           Overwrite existing signature files
-  --plot                Create PCoA plot. Can take a long time with many samples.
+  --plot                Create PCoA and NJ tree plots. Can take a long time with many samples.
   --pairwise            Compute pairwise distance matrix for each cluster with a new sample.
+  --assign-metric {query,min,max,avg}
+                        Containment used to assign new samples to existing clusters, comparing each sample with the
+                        merged sketch of each cluster: 'query' = fraction of the sample's hashes in the cluster (the
+                        default before v1.2.1); 'min', 'max' or 'avg' of that and the fraction of the cluster's hashes
+                        in the sample (default).
   --version             show program's version number and exit
 ```
 
@@ -63,10 +70,10 @@ options:
 ## Example
 ### 1. Running for the first time
 ```
-floc -i assemblies/ -o db/
+floc assemblies/ -o db/
 ```
 
 ### 2. Running any time after
 ```
-floc -i new_assemblies/ db/sig/ -o db/
+floc new_assemblies/ db/sigs/ -o db/
 ```
