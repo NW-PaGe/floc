@@ -34,8 +34,16 @@ def assign_to_cluster(
     mh_fx: MHMap,
     mh_clust: ClusterMap,
     threshold: float,
-    dist_cache: Optional[DistanceCache] = None
+    dist_cache: Optional[DistanceCache] = None,
+    metric: str = "query",
 ) -> Tuple[MHMap, MHMap]:
+    """Assign new samples to the closest existing cluster within `threshold`.
+
+    Each cluster is represented by the merge of its members' sketches. `metric`
+    sets how a sample is compared with that merged sketch (see
+    sm_ops._merged_distance): 'query' (default, sample-in-cluster containment),
+    or the 'min', 'max' or 'avg' of the containments in both directions.
+    """
     if not mh_clust:
         return {}, {qid: qinfo for qid, qinfo in mh_fx.items()}
 
@@ -54,20 +62,25 @@ def assign_to_cluster(
     merged_dist_cache = dist_cache if dist_cache is not None else DistanceCache()
 
     for qid, qinfo in mh_fx.items():
-        min_dist = 1
-        candidate_clusters: List[str] = []
+        best_dist = 1.0
+        best_cluster: Optional[str] = None
         for clabel, cinfo in mh_merged.items():
             local_map = {qid: qinfo} | cinfo
-            d = _merged_distance(qid, clabel, mh_map=local_map, cache=merged_dist_cache)
-            if d < threshold and d <= min_dist:
-                min_dist = d
-                candidate_clusters.append(clabel)
+            d = _merged_distance(qid, clabel, mh_map=local_map, cache=merged_dist_cache,
+                                 metric=metric)
+            # Keep the closest cluster within the threshold; break ties by
+            # taking the cluster label that sorts first alphabetically
+            if d >= threshold:
+                continue
+            if d < best_dist or (d == best_dist and clabel < best_cluster):
+                best_dist = d
+                best_cluster = clabel
 
-        if not candidate_clusters:
+        if best_cluster is None:
             remainder[qid] = qinfo
             continue
 
-        qinfo['cluster'] = candidate_clusters[0]
+        qinfo['cluster'] = best_cluster
         assigned[qid] = qinfo
 
     return assigned, remainder

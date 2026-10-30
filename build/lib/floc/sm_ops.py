@@ -53,14 +53,28 @@ def _distance(
     return d
 
 
+ASSIGN_METRICS = ("query", "min", "max", "avg")
+
+
 def _merged_distance(
     a: str,
     b: str,
     *,
     mh_map: Dict[str, Dict[str, Any]],  # expects {'mh': sm.MinHash, 'cluster': ...}
     cache: DistanceCache,
+    metric: str = "query",
 ) -> float:
-    """Cached pairwise distance = 1 - avg_containment."""
+    """Cached distance between a sample (a) and a merged cluster sketch (b).
+
+    metric:
+      query  1 - containment of the sample in the cluster sketch (fraction of the
+             sample's hashes found in the cluster). Original behaviour.
+      min    1 - min(sample-in-cluster, cluster-in-sample)
+      max    1 - max(sample-in-cluster, cluster-in-sample)
+      avg    1 - mean(sample-in-cluster, cluster-in-sample)
+    """
+    if metric not in ASSIGN_METRICS:
+        raise ValueError(f"Unknown assignment metric '{metric}'; use one of {ASSIGN_METRICS}.")
     cached = cache.get(a, b)
     if cached is not None:
         return cached
@@ -71,7 +85,14 @@ def _merged_distance(
     except KeyError as e:
         raise KeyError(f"Missing MinHash for key {e} in mh_map.") from e
 
-    d = 1.0 - float(mha.contained_by(mhb))
+    c_ab = float(mha.contained_by(mhb))          # sample in cluster
+    if metric == "query":
+        c = c_ab
+    else:
+        c_ba = float(mhb.contained_by(mha))      # cluster in sample
+        c = {"min": min, "max": max}.get(metric, lambda x, y: (x + y) / 2)(c_ab, c_ba)
+
+    d = 1.0 - c
     cache.set(a, b, d)
     return d
 

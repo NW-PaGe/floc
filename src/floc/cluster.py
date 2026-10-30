@@ -34,8 +34,16 @@ def assign_to_cluster(
     mh_fx: MHMap,
     mh_clust: ClusterMap,
     threshold: float,
-    dist_cache: Optional[DistanceCache] = None
+    dist_cache: Optional[DistanceCache] = None,
+    metric: str = "query",
 ) -> Tuple[MHMap, MHMap]:
+    """Assign new samples to the closest existing cluster within `threshold`.
+
+    Each cluster is represented by the merge of its members' sketches. `metric`
+    sets how a sample is compared with that merged sketch (see
+    sm_ops._merged_distance): 'query' (default, sample-in-cluster containment),
+    or the 'min', 'max' or 'avg' of the containments in both directions.
+    """
     if not mh_clust:
         return {}, {qid: qinfo for qid, qinfo in mh_fx.items()}
 
@@ -58,7 +66,8 @@ def assign_to_cluster(
         best_cluster: Optional[str] = None
         for clabel, cinfo in mh_merged.items():
             local_map = {qid: qinfo} | cinfo
-            d = _merged_distance(qid, clabel, mh_map=local_map, cache=merged_dist_cache)
+            d = _merged_distance(qid, clabel, mh_map=local_map, cache=merged_dist_cache,
+                                 metric=metric)
             # Keep the closest cluster within the threshold; break ties by
             # taking the cluster label that sorts first alphabetically
             if d >= threshold:

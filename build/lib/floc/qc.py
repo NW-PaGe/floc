@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import csv
+import math
 import logging
 import statistics
 from typing import Dict, Any, List, Optional, Tuple
@@ -85,6 +86,16 @@ def global_containment(
         logging.warning("global_containment: query_map is empty.")
         return {"n_queries": 0, "n_subjects": len(subject_map)}, [], {}
 
+    # A hash seen in a single sample has frequency 1/n, so when 1/n > min_hash_freq
+    # every hash is kept and no sample can fail QC.
+    n_subjects = len(subject_map)
+    if min_hash_freq > 0 and (1 / n_subjects) > min_hash_freq:
+        min_needed = math.ceil(1 / min_hash_freq - 1e-9)
+        logging.warning(
+            f"QC has little power with {n_subjects} samples: with --min-hash-freq {min_hash_freq}, "
+            f"at least {min_needed} samples are needed for rare k-mers to be filtered."
+        )
+
     # 1) Build filtered subject global (filtering based on subject cohort abundance)
     subj_global, subj_stats = _build_filtered_subject_global(subject_map, min_hash_freq)
     mh_global = {"global": {"mh": subj_global}}
@@ -122,7 +133,7 @@ def global_containment(
     logging.info(f"Query hash fraction   : threshold={min_hash_frac}; mean={mean_f:.4f} stdev={sd_f:.4f} range=[{min_f:.4f}, {max_f:.4f}]")
 
     if failing:
-        logging.warning(f"Queries below threshold (d > {min_hash_frac:.4f}):")
+        logging.warning(f"Queries below threshold (frac_hash_in_global < {min_hash_frac:.4f}):")
         for r in failing:
             logging.warning(f"id={r['id']} hash_freq={r['frac_hash_in_global']:.4f}")
     else:
