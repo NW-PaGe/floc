@@ -9,8 +9,7 @@ from .io_ops import parse_input, write_cluster_csv
 from .sm_ops import DistanceCache, build_minhash_map, load_minhash_map, write_sigs
 from .cluster import group_clusters, assign_to_cluster, create_new_clusters, pcoa_plot, nj_tree, calculate_cluster_distances
 from .qc import global_containment
-
-__version__ = "1.0"
+from . import __version__
 
 
 def build_parser():
@@ -35,6 +34,13 @@ def build_parser():
     p.add_argument("--overwrite", action="store_true", help="Overwrite existing signature files")
     p.add_argument("--plot", dest="plot", action="store_true", help="Create PCoA and NJ tree plots. Can take a long time with many samples.")
     p.add_argument("--pairwise", action="store_true", help="Compute pairwise distance matrix for each cluster with a new sample.")
+    p.add_argument(
+        "--assign-metric", choices=["query", "min", "max", "avg"], default="avg",
+        help="Containment used to assign new samples to existing clusters, comparing each "
+             "sample with the merged sketch of each cluster: 'query' = fraction of the "
+             "sample's hashes in the cluster (the default before v1.2.1); 'min', 'max' or "
+             "'avg' of that and the fraction of the cluster's hashes in the sample (default)."
+    )
     p.add_argument("--version", action="version", version=__version__)
     return p
 
@@ -93,7 +99,7 @@ def main(argv=None):
                 if len(fx_keys) != len(mh_fx):
                     failed = '\n\t'.join([sid for sid in fx_keys if sid not in mh_fx]) + '\n'
                     logging.error(f"One or more sample failed QC. Remove them to continue or re-run with '--ignore-qc':\n\n\t{failed}")
-                    exit()
+                    sys.exit(1)
 
         # --- If there are existing clusters, group them ---
         if mh_sig:
@@ -106,7 +112,8 @@ def main(argv=None):
         # --- Assign new samples to clusters ---
         if mh_clust:
             logger.info("Assigning new sequences to existing clusters...")
-            assigned, remainder = assign_to_cluster(mh_fx, mh_clust, args.distance)
+            assigned, remainder = assign_to_cluster(mh_fx, mh_clust, args.distance,
+                                                    metric=args.assign_metric)
             logger.info(f"Assigned {len(assigned)} sequences; {len(remainder)} unassigned remain.")
 
             # IMPORTANT: merge assigned into mh_clust so they appear in outputs
