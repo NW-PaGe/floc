@@ -16,7 +16,7 @@ pip install --no-build-isolation floc/
 ### With Docker
 ```
 docker run --rm -v "$PWD":/work -w /work \
-    public.ecr.aws/o8h2f0o1/floc:1.2.1 \
+    public.ecr.aws/o8h2f0o1/floc:1.2.2 \
     floc --help
 ```
 
@@ -52,9 +52,9 @@ options:
   --pairwise            Compute pairwise distance matrix for each cluster with a new sample.
   --assign-metric {query,min,max,avg}
                         Containment used to assign new samples to existing clusters, comparing each sample with the
-                        merged sketch of each cluster: 'query' = fraction of the sample's hashes in the cluster (the
-                        default before v1.2.1); 'min', 'max' or 'avg' of that and the fraction of the cluster's hashes
-                        in the sample (default).
+                        merged sketch of each cluster: 'query' = fraction of the sample's hashes in the cluster
+                        (default); 'min', 'max' or 'avg' of that and the fraction of the cluster's hashes in the
+                        sample.
   --version             show program's version number and exit
 ```
 

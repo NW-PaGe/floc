@@ -2,6 +2,17 @@
 
 All notable changes to floc are documented in this file.
 
+## [1.2.2] - 2026-10-30
+
+### Changed
+- Reverted the default `--assign-metric` from `avg` back to `query`
+  (fraction of the sample's hashes found in the cluster's merged sketch), the
+  behaviour of v1.1 and earlier. Average containment only improved assignment
+  while clusters were small; as a cluster's merged sketch grows, the
+  cluster-in-sample containment shrinks and drags the average down, so new
+  samples increasingly fail to join clusters they belong to.
+  Use `--assign-metric avg` to get the v1.2.1 behaviour.
+
 ## [1.2.1] - 2026-10-30
 
 ### Changed

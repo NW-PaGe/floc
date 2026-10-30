@@ -35,11 +35,11 @@ def build_parser():
     p.add_argument("--plot", dest="plot", action="store_true", help="Create PCoA and NJ tree plots. Can take a long time with many samples.")
     p.add_argument("--pairwise", action="store_true", help="Compute pairwise distance matrix for each cluster with a new sample.")
     p.add_argument(
-        "--assign-metric", choices=["query", "min", "max", "avg"], default="avg",
+        "--assign-metric", choices=["query", "min", "max", "avg"], default="query",
         help="Containment used to assign new samples to existing clusters, comparing each "
              "sample with the merged sketch of each cluster: 'query' = fraction of the "
-             "sample's hashes in the cluster (the default before v1.2.1); 'min', 'max' or "
-             "'avg' of that and the fraction of the cluster's hashes in the sample (default)."
+             "sample's hashes in the cluster (default); 'min', 'max' or 'avg' of that and the "
+             "fraction of the cluster's hashes in the sample."
     )
     p.add_argument("--version", action="version", version=__version__)
     return p
