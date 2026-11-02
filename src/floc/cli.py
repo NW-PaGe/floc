@@ -37,7 +37,8 @@ def build_parser():
     p.add_argument("--plot", dest="plot", action="store_true", help="Create PCoA and NJ tree plots. Can take a long time with many samples.")
     p.add_argument("--pairwise", action="store_true", help="Compute pairwise distance matrix for each cluster with a new sample.")
     p.add_argument("--assign-metric", choices=["avg", "min", "max", "query"], default="avg", help="Containment metric used to assign new samples to existing clusters: avg, min, max, or query (default: %(default)s)")
-    p.add_argument("--cluster-hash-freq", type=float, default=0.50, help="Only use hashes found in at least this fraction of the cluster global hash when assigning new samples (default: %(default)s).")
+    p.add_argument("--assign-hash-freq", type=float, default=0.50, help="Assign new samples using cluster hashes built using k-mers present in at least this fraction of the cluster samples (default: %(default)s)")
+    p.add_argument("--dbscan-metric", choices=["avg", "min", "max"], default="avg", help="Containment metric used by DBSCAN; also used for --pairwise and --plot (default: %(default)s)")
     p.add_argument("--version", action="version", version=__version__)
     return p
 
@@ -47,8 +48,8 @@ def main(argv=None):
     logger = logging.getLogger(__name__)
     parser = build_parser()
     args = parser.parse_args(argv)
-    if args.cluster_hash_freq is not None and not 0 <= args.cluster_hash_freq <= 1:
-        parser.error("--cluster-hash-freq must be between 0 and 1")
+    if not 0 <= args.assign_hash_freq <= 1:
+        parser.error("--assign-hash-freq must be between 0 and 1")
 
     start = time.time()
     logger.info(f"floc v{__version__} starting")
@@ -57,7 +58,7 @@ def main(argv=None):
     logger.info(f"args: {args_smry}")
 
     try:
-        dist_cache = DistanceCache()
+        dist_cache = DistanceCache(metric=args.dbscan_metric)
 
         # Parse inputs: separate FASTA/FASTQ and signatures
         input_fx, input_sig = parse_input(args.input, args.overwrite)
@@ -100,7 +101,7 @@ def main(argv=None):
                     logging.error(f"One or more sample failed QC. Remove them to continue or re-run with '--ignore-qc':\n\n\t{failed}")
                     sys.exit(1)
 
-        cluster_hash_freq = args.cluster_hash_freq
+        assign_hash_freq = args.assign_hash_freq
         os.makedirs(args.outdir, exist_ok=True)
         clear_pairwise(args.outdir)
 
@@ -117,7 +118,7 @@ def main(argv=None):
             logger.info("Assigning new sequences to existing clusters...")
             assigned, remainder = assign_to_cluster(mh_fx, mh_clust, args.distance,
                                                     metric=args.assign_metric,
-                                                    min_member_frac=cluster_hash_freq,
+                                                    min_member_frac=assign_hash_freq,
                                                     outdir=args.outdir)
             logger.info(f"Assigned {len(assigned)} sequences; {len(remainder)} unassigned remain.")
 
@@ -134,7 +135,7 @@ def main(argv=None):
             mh_clust = create_new_clusters(
                 remainder, dist_cache, args.distance, args.batch,
                 min_samples=1, existing=mh_clust,
-                metric=args.assign_metric, min_member_frac=cluster_hash_freq,
+                metric=args.assign_metric, min_member_frac=assign_hash_freq,
                 outdir=args.outdir,
             )
             logger.info(f"Total clusters after processing: {len(mh_clust)}")

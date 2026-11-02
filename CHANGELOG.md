@@ -2,6 +2,49 @@
 
 All notable changes to floc are documented in this file.
 
+## [1.2.3] - 2026-11-02
+
+### Changed
+- When assigning new samples, each existing cluster is now represented only by
+  hashes found in at least `--assign-hash-freq` of its members (default 0.5).
+  Previously the cluster's merged sketch kept every hash from every member, so
+  it kept growing with k-mers carried by only one or a few members.
+- The default `--assign-metric` is `avg` again. With the merged sketch limited
+  to hashes most members share, the cluster-in-sample containment falls much
+  less as clusters grow, which is what made `avg` unreliable in v1.2.1.
+- Samples left over after each DBSCAN batch are now assigned using
+  `--assign-metric` and `--assign-hash-freq`; previously this step always used
+  `query` with every hash. This only affects runs with more new samples than
+  `--batch`.
+
+### Added
+- `--assign-hash-freq` option (see above). `0` keeps every hash.
+- `--dbscan-metric {avg,min,max}` sets how the containments in both directions
+  between two samples are combined into the distance used by DBSCAN
+  (default `avg`, the previous behaviour). The same distances are used for
+  `--pairwise` and `--plot`.
+- The containments and distances behind each step are saved to the output
+  directory, with the columns `id1,id2,id1_in_id2,id2_in_id1,distance`:
+  - `assign.csv`: each new sample against each existing cluster (replaced
+    each run);
+  - `dbscan.csv`: sample pairs compared by DBSCAN. Each run in the same output
+    directory adds to this file, so no comparison is lost;
+  - `plot.csv`: every sample pair used for the plots, with `--plot` (replaced
+    each run).
+
+### Fixed
+- Between-batch assignment no longer reuses distances cached for an earlier,
+  smaller version of a cluster, or confuses a sample with a cluster of the
+  same name.
+
+### Removed
+- Committed build artifacts (`build/`, `src/floc.egg-info/`). A stale `build/`
+  folder could be installed in place of the current source; both are now
+  ignored via `.gitignore`.
+
+To reproduce v1.2.2 assignments use `--assign-metric query --assign-hash-freq 0`;
+for v1.2.1 use `--assign-hash-freq 0`.
+
 ## [1.2.2] - 2026-10-30
 
 ### Changed
@@ -11,30 +54,7 @@ All notable changes to floc are documented in this file.
   while clusters were small; as a cluster's merged sketch grows, the
   cluster-in-sample containment shrinks and drags the average down, so new
   samples increasingly fail to join clusters they belong to.
-- When assigning new samples, each existing cluster is now represented only by
-  hashes found in at least `--cluster-hash-freq` of its members (default: the
-  `--min-hash-freq` value, 0.05). Previously the merged sketch kept every hash
-  from every member, so it kept growing with k-mers carried by only one or a
-  few members. Use `--cluster-hash-freq 0` to keep every hash.
-
-### Added
-- `--cluster-hash-freq` option (see above).
-- The containments and distances behind each step are saved to the output
-  directory: `assign.csv` (each new sample against each existing cluster),
-  `dbscan.csv` (sample pairs clustered with DBSCAN) and, with `--plot`,
-  `plot.csv` (all sample pairs used for the plots). `dbscan.csv` is added to
-  by each run in the same output directory rather than replaced, so no DBSCAN
-  comparison is lost; `assign.csv` and `plot.csv` are replaced each run.
-
-### Fixed
-- Samples left over after each DBSCAN batch are now assigned using
-  `--assign-metric` and `--cluster-hash-freq`; previously this step always used
-  `query` with every hash. It also no longer reuses distances cached for an
-  earlier, smaller version of a cluster, or confuses a sample with a cluster
-  that has the same name.
-
-To reproduce v1.2.1 assignments use `--assign-metric avg --cluster-hash-freq 0`;
-for v1.1 use `--cluster-hash-freq 0`.
+  Use `--assign-metric avg` to get the v1.2.1 behaviour.
 
 ## [1.2.1] - 2026-10-30
 

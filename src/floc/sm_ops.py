@@ -14,13 +14,39 @@ import gzip
 # Distance cache & distance fn
 # ----------------------------
 
+# Ways of combining the two containments between sketches a and b
+ASSIGN_METRICS = ("query", "min", "max", "avg")  # sample vs merged cluster sketch
+PAIR_METRICS = ("avg", "min", "max")             # sample vs sample (must be symmetric)
+
+
+def _combine(a_in_b: float, b_in_a: float, metric: str) -> float:
+    """Combine the containments in both directions into one similarity.
+    'query' uses a_in_b only."""
+    if metric == "query":
+        return a_in_b
+    if metric == "min":
+        return min(a_in_b, b_in_a)
+    if metric == "max":
+        return max(a_in_b, b_in_a)
+    if metric == "avg":
+        return (a_in_b + b_in_a) / 2
+    raise ValueError(f"Unknown metric '{metric}'.")
+
+
 class DistanceCache:
     """Symmetric key cache: cache[(a, b)] == cache[(b, a)].
 
     Alongside each distance it can hold the two containments behind it, so they
     can be written out later without being recomputed (see io_ops.write_pairwise).
+
+    `metric` sets how _distance() combines the two containments of a sample pair
+    (one of PAIR_METRICS). It belongs to the cache so that every distance stored
+    in it was computed the same way.
     """
-    def __init__(self) -> None:
+    def __init__(self, metric: str = "avg") -> None:
+        if metric not in PAIR_METRICS:
+            raise ValueError(f"Unknown pairwise metric '{metric}'; use one of {PAIR_METRICS}.")
+        self.metric = metric
         self._d: Dict[Tuple[Any, Any], float] = {}
         self._c: Dict[Tuple[Any, Any], Tuple[float, float]] = {}
 
@@ -54,8 +80,9 @@ def _distance(
     mh_map: Dict[str, Dict[str, Any]],  # expects {'mh': sm.MinHash, 'cluster': ...}
     cache: DistanceCache,
 ) -> float:
-    """Cached pairwise distance = 1 - mean of the containments in both directions
-    (same as MinHash.avg_containment)."""
+    """Cached distance between two samples: 1 - the containments in both
+    directions combined with cache.metric ('avg' is the same as
+    MinHash.avg_containment)."""
     cached = cache.get(a, b)
     if cached is not None:
         return cached
@@ -68,12 +95,10 @@ def _distance(
 
     c_ab = float(mha.contained_by(mhb))
     c_ba = float(mhb.contained_by(mha))
-    d = 1.0 - (c_ab + c_ba) / 2
+    d = 1.0 - _combine(c_ab, c_ba, cache.metric)
     cache.set(a, b, d, a_in_b=c_ab, b_in_a=c_ba)
     return d
 
-
-ASSIGN_METRICS = ("query", "min", "max", "avg")
 
 
 def _merged_distance(
@@ -107,8 +132,7 @@ def _merged_distance(
 
     c_ab = float(mha.contained_by(mhb))          # sample in cluster
     c_ba = float(mhb.contained_by(mha))          # cluster in sample
-    c = {"query": c_ab, "min": min(c_ab, c_ba), "max": max(c_ab, c_ba),
-         "avg": (c_ab + c_ba) / 2}[metric]
+    c = _combine(c_ab, c_ba, metric)
 
     d = 1.0 - c
     cache.set(a, b, d, a_in_b=c_ab, b_in_a=c_ba)

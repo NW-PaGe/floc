@@ -30,3 +30,9 @@ def test_write_pairwise(tmp_path):
     assert [(r["id1"], r["id2"]) for r in rows] == [("x", "y"), ("y", "x")]
     assert float(rows[0]["id1_in_id2"]) == 0.5 and float(rows[0]["id2_in_id1"]) == 1.0
     assert float(rows[0]["distance"]) == d == 0.25
+
+
+def test_dbscan_metric():
+    m = {"x": {"mh": _mh(range(1, 11))}, "y": {"mh": _mh(range(1, 6))}}  # x in y 0.5, y in x 1.0
+    for metric, want in [("avg", 0.25), ("min", 0.5), ("max", 0.0)]:
+        assert _distance("x", "y", mh_map=m, cache=DistanceCache(metric=metric)) == want
