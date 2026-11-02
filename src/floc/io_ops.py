@@ -3,6 +3,47 @@ import logging, os, csv, sys
 
 SEQ_EXTS = {'.fa', '.fasta', '.fna', '.fq', '.fastq'}
 
+# Pairwise comparison files written to the output directory
+PAIR_FILES = {"assign": "assign.csv", "dbscan": "dbscan.csv", "plot": "plot.csv"}
+# Files that keep growing across runs instead of being replaced
+PAIR_FILES_KEPT = {"dbscan"}
+PAIR_FIELDS = ["id1", "id2", "id1_in_id2", "id2_in_id1", "distance"]
+
+
+def write_pairwise(path: str, pairs, cache) -> int:
+    """Append one row per (id1, id2) pair to the CSV at `path`, taking the
+    distance and both containments from `cache` (a sm_ops.DistanceCache).
+
+    The header is written when the file is new, so repeated calls during a run
+    (e.g. one per DBSCAN batch) build up a single file. Pairs that were never
+    compared are skipped. Returns the number of rows written.
+    """
+    new = not os.path.exists(path) or os.path.getsize(path) == 0
+    n = 0
+    with open(path, "a", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        if new:
+            w.writerow(PAIR_FIELDS)
+        for a, b in pairs:
+            d = cache.get(a, b)
+            c = cache.get_containments(a, b)
+            if d is None or c is None:
+                continue
+            w.writerow([a, b, c[0], c[1], d])
+            n += 1
+    return n
+
+
+def clear_pairwise(outdir: str) -> None:
+    """Remove pairwise files left by a previous run in `outdir`, except those in
+    PAIR_FILES_KEPT (dbscan.csv), which new runs add to."""
+    for key, name in PAIR_FILES.items():
+        if key in PAIR_FILES_KEPT:
+            continue
+        p = os.path.join(outdir, name)
+        if os.path.exists(p):
+            os.remove(p)
+
 def drop_ext(filepath: str) -> str:
     """
     Return basename without compression and primary extension.

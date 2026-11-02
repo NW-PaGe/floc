@@ -15,9 +15,14 @@ import gzip
 # ----------------------------
 
 class DistanceCache:
-    """Symmetric key cache: cache[(a, b)] == cache[(b, a)]."""
+    """Symmetric key cache: cache[(a, b)] == cache[(b, a)].
+
+    Alongside each distance it can hold the two containments behind it, so they
+    can be written out later without being recomputed (see io_ops.write_pairwise).
+    """
     def __init__(self) -> None:
         self._d: Dict[Tuple[Any, Any], float] = {}
+        self._c: Dict[Tuple[Any, Any], Tuple[float, float]] = {}
 
     @staticmethod
     def _key(a: Any, b: Any) -> Tuple[Any, Any]:
@@ -26,8 +31,20 @@ class DistanceCache:
     def get(self, a: Any, b: Any) -> Optional[float]:
         return self._d.get(self._key(a, b))
 
-    def set(self, a: Any, b: Any, val: float) -> None:
-        self._d[self._key(a, b)] = float(val)
+    def set(self, a: Any, b: Any, val: float,
+            a_in_b: Optional[float] = None, b_in_a: Optional[float] = None) -> None:
+        k = self._key(a, b)
+        self._d[k] = float(val)
+        if a_in_b is not None and b_in_a is not None:
+            self._c[k] = (float(a_in_b), float(b_in_a)) if k == (a, b) else (float(b_in_a), float(a_in_b))
+
+    def get_containments(self, a: Any, b: Any) -> Optional[Tuple[float, float]]:
+        """(a in b, b in a), or None if not stored."""
+        k = self._key(a, b)
+        c = self._c.get(k)
+        if c is None:
+            return None
+        return c if k == (a, b) else (c[1], c[0])
 
 
 def _distance(
@@ -37,7 +54,8 @@ def _distance(
     mh_map: Dict[str, Dict[str, Any]],  # expects {'mh': sm.MinHash, 'cluster': ...}
     cache: DistanceCache,
 ) -> float:
-    """Cached pairwise distance = 1 - avg_containment."""
+    """Cached pairwise distance = 1 - mean of the containments in both directions
+    (same as MinHash.avg_containment)."""
     cached = cache.get(a, b)
     if cached is not None:
         return cached
@@ -48,8 +66,10 @@ def _distance(
     except KeyError as e:
         raise KeyError(f"Missing MinHash for key {e} in mh_map.") from e
 
-    d = 1.0 - float(mha.avg_containment(mhb))
-    cache.set(a, b, d)
+    c_ab = float(mha.contained_by(mhb))
+    c_ba = float(mhb.contained_by(mha))
+    d = 1.0 - (c_ab + c_ba) / 2
+    cache.set(a, b, d, a_in_b=c_ab, b_in_a=c_ba)
     return d
 
 
@@ -86,14 +106,12 @@ def _merged_distance(
         raise KeyError(f"Missing MinHash for key {e} in mh_map.") from e
 
     c_ab = float(mha.contained_by(mhb))          # sample in cluster
-    if metric == "query":
-        c = c_ab
-    else:
-        c_ba = float(mhb.contained_by(mha))      # cluster in sample
-        c = {"min": min, "max": max}.get(metric, lambda x, y: (x + y) / 2)(c_ab, c_ba)
+    c_ba = float(mhb.contained_by(mha))          # cluster in sample
+    c = {"query": c_ab, "min": min(c_ab, c_ba), "max": max(c_ab, c_ba),
+         "avg": (c_ab + c_ba) / 2}[metric]
 
     d = 1.0 - c
-    cache.set(a, b, d)
+    cache.set(a, b, d, a_in_b=c_ab, b_in_a=c_ba)
     return d
 
 

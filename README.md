@@ -24,7 +24,7 @@ docker run --rm -v "$PWD":/work -w /work \
 ```
 usage: floc [-h] [-o OUTDIR] [-d DISTANCE] [--ksize KSIZE] [--scaled SCALED] [--batch BATCH] [--ignore-qc] [--skip-qc]
             [--min-hash-freq MIN_HASH_FREQ] [--min-hash-frac MIN_HASH_FRAC] [--overwrite] [--plot] [--pairwise]
-            [--assign-metric {query,min,max,avg}] [--version]
+            [--assign-metric {query,min,max,avg}] [--cluster-hash-freq CLUSTER_HASH_FREQ] [--version]
             input [input ...]
 
 floc: Genomic clustering tool for population-level surveillance
@@ -55,6 +55,9 @@ options:
                         merged sketch of each cluster: 'query' = fraction of the sample's hashes in the cluster
                         (default); 'min', 'max' or 'avg' of that and the fraction of the cluster's hashes in the
                         sample.
+  --cluster-hash-freq CLUSTER_HASH_FREQ
+                        When assigning new samples, only use hashes found in at least this fraction of an existing
+                        cluster's members (default: same as --min-hash-freq).
   --version             show program's version number and exit
 ```
 
@@ -66,6 +69,11 @@ options:
 |`pcoa.html`|PCoA plot generated from all pairwise distances. Only created if run with `--plot`|
 |`nj_tree.html` & `nj_tree.nwk`|Neighbor-joining tree plot and newick file generated from all pairwise distances. Only created if run with `--plot`|
 |`global_containment.csv`|Per-sample summary of minhash global containment|
+|`assign.csv`|Each new sample compared with the merged sketch of each existing cluster during assignment (`id2` is the cluster label)|
+|`dbscan.csv`|Pairwise comparisons between samples clustered with DBSCAN. New runs add to this file rather than replacing it, so it keeps a record of every DBSCAN comparison made in this output directory|
+|`plot.csv`|Pairwise comparisons between all samples used for the plots. Only created if run with `--plot`|
+
+`assign.csv`, `dbscan.csv` and `plot.csv` share the columns `id1,id2,id1_in_id2,id2_in_id1,distance`: the fraction of `id1`'s hashes found in `id2`, the reverse, and the distance floc used (for `assign.csv` this depends on `--assign-metric`; otherwise it is 1 minus the mean of the two containments). Each file is only written when that step runs. `assign.csv` and `plot.csv` are replaced on each run; `dbscan.csv` is added to.
 
 ## Example
 ### 1. Running for the first time

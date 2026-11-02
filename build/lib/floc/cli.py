@@ -5,12 +5,13 @@ import argparse
 import logging
 
 from .utils import set_up_logging
-from .io_ops import parse_input, write_cluster_csv
+from itertools import combinations
+
+from .io_ops import parse_input, write_cluster_csv, write_pairwise, clear_pairwise, PAIR_FILES
 from .sm_ops import DistanceCache, build_minhash_map, load_minhash_map, write_sigs
 from .cluster import group_clusters, assign_to_cluster, create_new_clusters, pcoa_plot, nj_tree, calculate_cluster_distances
 from .qc import global_containment
-
-__version__ = "1.0"
+from . import __version__
 
 
 def build_parser():
@@ -39,8 +40,13 @@ def build_parser():
         "--assign-metric", choices=["query", "min", "max", "avg"], default="query",
         help="Containment used to assign new samples to existing clusters, comparing each "
              "sample with the merged sketch of each cluster: 'query' = fraction of the "
-             "sample's hashes in the cluster (default, original behaviour); 'min', 'max' or "
-             "'avg' of that and the fraction of the cluster's hashes in the sample."
+             "sample's hashes in the cluster (default); 'min', 'max' or 'avg' of that and the "
+             "fraction of the cluster's hashes in the sample."
+    )
+    p.add_argument(
+        "--cluster-hash-freq", type=float, default=None,
+        help="When assigning new samples, only use hashes found in at least this fraction "
+             "of an existing cluster's members (default: same as --min-hash-freq)."
     )
     p.add_argument("--version", action="version", version=__version__)
     return p
@@ -51,6 +57,8 @@ def main(argv=None):
     logger = logging.getLogger(__name__)
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.cluster_hash_freq is not None and not 0 <= args.cluster_hash_freq <= 1:
+        parser.error("--cluster-hash-freq must be between 0 and 1")
 
     start = time.time()
     logger.info(f"floc v{__version__} starting")
@@ -102,6 +110,11 @@ def main(argv=None):
                     logging.error(f"One or more sample failed QC. Remove them to continue or re-run with '--ignore-qc':\n\n\t{failed}")
                     sys.exit(1)
 
+        cluster_hash_freq = (args.min_hash_freq if args.cluster_hash_freq is None
+                             else args.cluster_hash_freq)
+        os.makedirs(args.outdir, exist_ok=True)
+        clear_pairwise(args.outdir)
+
         # --- If there are existing clusters, group them ---
         if mh_sig:
             mh_clust = group_clusters(mh_sig)
@@ -114,7 +127,9 @@ def main(argv=None):
         if mh_clust:
             logger.info("Assigning new sequences to existing clusters...")
             assigned, remainder = assign_to_cluster(mh_fx, mh_clust, args.distance,
-                                                    metric=args.assign_metric)
+                                                    metric=args.assign_metric,
+                                                    min_member_frac=cluster_hash_freq,
+                                                    outdir=args.outdir)
             logger.info(f"Assigned {len(assigned)} sequences; {len(remainder)} unassigned remain.")
 
             # IMPORTANT: merge assigned into mh_clust so they appear in outputs
@@ -129,7 +144,9 @@ def main(argv=None):
             logger.info("Clustering remaining sequences...")
             mh_clust = create_new_clusters(
                 remainder, dist_cache, args.distance, args.batch,
-                min_samples=1, existing=mh_clust
+                min_samples=1, existing=mh_clust,
+                metric=args.assign_metric, min_member_frac=cluster_hash_freq,
+                outdir=args.outdir,
             )
             logger.info(f"Total clusters after processing: {len(mh_clust)}")
         else:
@@ -154,6 +171,8 @@ def main(argv=None):
             if args.plot:
                 pcoa_plot(mh_out, dist_cache, save_html=os.path.join(args.outdir, 'pcoa.html'))
                 nj_tree(mh_out, dist_cache, save_html=os.path.join(args.outdir, 'nj_tree.html'), save_newick=os.path.join(args.outdir, 'nj_tree.nwk'))
+                write_pairwise(os.path.join(args.outdir, PAIR_FILES["plot"]),
+                               combinations(mh_out, 2), dist_cache)
 
         else:
             logger.warning("No clusters found; nothing to write.")

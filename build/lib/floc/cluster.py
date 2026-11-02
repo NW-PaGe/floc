@@ -9,9 +9,10 @@ from sklearn.cluster import DBSCAN
 import plotly.graph_objects as go
 import os
 import gzip
+from itertools import combinations
 
 from .sm_ops import DistanceCache, _distance, _merged_distance
-from .io_ops import drop_ext
+from .io_ops import drop_ext, write_pairwise, PAIR_FILES
 
 Rec = Dict[str, Any]
 MHMap = Dict[str, Rec]
@@ -36,6 +37,8 @@ def assign_to_cluster(
     threshold: float,
     dist_cache: Optional[DistanceCache] = None,
     metric: str = "query",
+    min_member_frac: float = 0.0,
+    outdir: Optional[str] = None,
 ) -> Tuple[MHMap, MHMap]:
     """Assign new samples to the closest existing cluster within `threshold`.
 
@@ -43,23 +46,27 @@ def assign_to_cluster(
     sets how a sample is compared with that merged sketch (see
     sm_ops._merged_distance): 'query' (default, sample-in-cluster containment),
     or the 'min', 'max' or 'avg' of the containments in both directions.
+
+    Only hashes present in at least `min_member_frac` of a cluster's members are
+    kept in its merged sketch, so k-mers carried by only a few members do not
+    count towards the comparison. 0 keeps every hash.
+
+    If `outdir` is given, every sample-cluster comparison is appended to
+    assign.csv there (id1 = sample, id2 = cluster label).
     """
     if not mh_clust:
         return {}, {qid: qinfo for qid, qinfo in mh_fx.items()}
 
     mh_merged: Dict[str, Dict[str, Rec]] = {}
     for clabel, members in mh_clust.items():
-        for i, (_, rec) in enumerate(members.items()):
-            rmh = rec['mh'].to_mutable()
-            if i == 0:
-                mhm = rmh
-            else:
-                mhm.merge(rmh)
-        mh_merged[clabel] = {clabel: {'mh': mhm}}
+        mh_merged[clabel] = {clabel: {'mh': _merge_cluster(clabel, members, min_member_frac)}}
 
     assigned: MHMap = {}
     remainder: MHMap = {}
-    merged_dist_cache = dist_cache if dist_cache is not None else DistanceCache()
+    # Merged cluster sketches change between calls, and cluster labels could
+    # clash with sample IDs, so never reuse the sample-sample cache here.
+    merged_dist_cache = DistanceCache()
+    compared: List[Tuple[str, str]] = []
 
     for qid, qinfo in mh_fx.items():
         best_dist = 1.0
@@ -68,6 +75,7 @@ def assign_to_cluster(
             local_map = {qid: qinfo} | cinfo
             d = _merged_distance(qid, clabel, mh_map=local_map, cache=merged_dist_cache,
                                  metric=metric)
+            compared.append((qid, clabel))
             # Keep the closest cluster within the threshold; break ties by
             # taking the cluster label that sorts first alphabetically
             if d >= threshold:
@@ -83,7 +91,32 @@ def assign_to_cluster(
         qinfo['cluster'] = best_cluster
         assigned[qid] = qinfo
 
+    if outdir:
+        write_pairwise(os.path.join(outdir, PAIR_FILES["assign"]), compared, merged_dist_cache)
+
     return assigned, remainder
+
+
+def _merge_cluster(clabel: str, members: MHMap, min_member_frac: float = 0.0):
+    """Merge a cluster's member sketches, keeping only hashes found in at least
+    `min_member_frac` of the members (abundances are summed across members)."""
+    mhs = [rec['mh'] for rec in members.values()]
+    n = len(mhs)
+    counts: Dict[int, List[int]] = {}
+    for mh in mhs:
+        for h, a in mh.hashes.items():
+            c = counts.setdefault(h, [0, 0])
+            c[0] += 1
+            c[1] += a
+    kept = {h: a for h, (k, a) in counts.items() if k / n >= min_member_frac}
+
+    mhm = mhs[0].copy_and_clear()
+    mhm.set_abundances(kept)
+    logging.getLogger(__name__).debug(
+        f"Cluster {clabel}: {n} members; kept {len(kept)}/{len(counts)} hashes "
+        f"present in >= {min_member_frac} of members."
+    )
+    return mhm
 
 
 def _next_cluster_label(cmap: ClusterMap) -> str:
@@ -129,8 +162,17 @@ def create_new_clusters(
     eps: float,
     batch_size: int,
     min_samples: int = 1,
-    existing: Optional[ClusterMap] = None
+    existing: Optional[ClusterMap] = None,
+    metric: str = "query",
+    min_member_frac: float = 0.0,
+    outdir: Optional[str] = None,
 ) -> ClusterMap:
+    """Cluster samples in batches with DBSCAN, assigning leftover samples to the
+    clusters made so far (using `metric` and `min_member_frac`) after each batch.
+
+    If `outdir` is given, each batch's pairwise comparisons are appended to
+    dbscan.csv and the between-batch assignments to assign.csv.
+    """
     mh_clust: ClusterMap = {} if existing is None else {str(k): dict(v) for k, v in existing.items()}
 
     qids_all = list(mh_fx.keys())
@@ -153,6 +195,9 @@ def create_new_clusters(
             remainder_ids = remainder_ids[1:]
         else:
             D = _pairwise_distance_matrix(batch_ids, mh_fx, dist_cache)
+            if outdir:
+                write_pairwise(os.path.join(outdir, PAIR_FILES["dbscan"]),
+                               combinations(batch_ids, 2), dist_cache)
             db = DBSCAN(eps=eps, min_samples=min_samples, metric="precomputed")
             labels = db.fit_predict(D)
 
@@ -175,7 +220,8 @@ def create_new_clusters(
         if remainder_ids:
             remaining_map: MHMap = {qid: mh_fx[qid] for qid in remainder_ids}
             assigned, still_left = assign_to_cluster(
-                remaining_map, mh_clust, threshold=eps, dist_cache=dist_cache,
+                remaining_map, mh_clust, threshold=eps,
+                metric=metric, min_member_frac=min_member_frac, outdir=outdir,
             )
             for qid, rec in assigned.items():
                 clabel = str(rec['cluster'])
