@@ -23,8 +23,8 @@ def build_parser():
     )
     p.add_argument("-o", "--outdir", default="./", help="Output directory")
     p.add_argument(
-        "-d", "--distance", default=0.03, type=float,
-        help="Distance threshold used to create clusters (default: 0.03)"
+        "-d", "--distance", default=0.05, type=float,
+        help="Distance threshold used to create clusters (default: %(default)s)"
     )
     p.add_argument("--ksize", default=31, type=int, help="k-mer size")
     p.add_argument("--scaled", default=100, type=int, help="Scaling factor for signatures")
@@ -37,7 +37,7 @@ def build_parser():
     p.add_argument("--plot", dest="plot", action="store_true", help="Create PCoA and NJ tree plots. Can take a long time with many samples.")
     p.add_argument("--pairwise", action="store_true", help="Compute pairwise distance matrix for each cluster with a new sample.")
     p.add_argument("--assign-metric", choices=["avg", "min", "max", "query"], default="avg", help="Containment metric used to assign new samples to existing clusters: avg, min, max, or query (default: %(default)s)")
-    p.add_argument("--assign-hash-freq", type=float, default=0.50, help="Assign new samples using cluster hashes built using k-mers present in at least this fraction of the cluster samples (default: %(default)s)")
+    p.add_argument("--assign-hash-freq", type=float, default=0.60, help="Assign new samples using cluster hashes built using k-mers present in at least this fraction of the cluster samples (default: %(default)s)")
     p.add_argument("--dbscan-metric", choices=["avg", "min", "max"], default="avg", help="Containment metric used by DBSCAN; also used for --pairwise and --plot (default: %(default)s)")
     p.add_argument("--version", action="version", version=__version__)
     return p
