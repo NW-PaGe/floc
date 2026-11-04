@@ -1,4 +1,6 @@
-<img src="assets/floc_logo.png" alt="floc logo" width="180" align="right">
+<p align="center">
+  <img src="assets/floc_logo.png" alt="floc logo" width="400">
+</p>
 
 # Floc :beer:
 Floc is an iterative genome clustering tool. Genome assemblies are placed into new or existing clusters based on pairwise genetic distances. Genetic distance is estimated using the Sourmash k-mer containment method.
