@@ -1,4 +1,4 @@
-# Validation: does batch size change the clusters?
+# Evaluation: does batch size change the clusters?
 In routine surveillance, samples arrive a few at a time, so floc is run over and over against the same database. The **batch size** is the number of samples added to the floc database on each iteration. With a batch size of 10, the first 10 samples are clustered, the next 10 are added to that database (`floc new_batch/ db/sigs/ -o db/`), and so on until every sample has been added. Ideally, the final clusters should be the same whether samples are added one at a time or all at once.
 
 We tested this with [floc_val](https://github.com/DOH-JDJ0303/floc_val), a Nextflow pipeline that runs floc on the same assemblies at several batch sizes and compares the final clusters with each other and with pairwise SNP distances from [SKA2](https://github.com/bacpop/ska.rust). Samples are added in the same seeded random order at every batch size. The run that adds all samples in a single batch (batch size 100) is the reference.
@@ -89,21 +89,21 @@ Each plot is a neighbour-joining tree of pairwise SNP distances with one column 
 - At every threshold and batch size, all 31 close pairs stayed in the same cluster.
 
 <details>
-<summary><i>E. coli</i>, 0.05 (<a href="validation/ecoli_05.nj_tree_clusters.html">interactive</a>, <a href="validation/ecoli_05.run_metrics.tsv">metrics</a>)</summary>
+<summary><i>E. coli</i>, 0.05 (<a href="evaluation/ecoli_05.nj_tree_clusters.html">interactive</a>, <a href="evaluation/ecoli_05.run_metrics.tsv">metrics</a>)</summary>
 
-![E. coli NJ tree with floc clusters by batch size, distance 0.05](validation/ecoli_05.nj_tree_clusters.png)
+![E. coli NJ tree with floc clusters by batch size, distance 0.05](evaluation/ecoli_05.nj_tree_clusters.png)
 </details>
 
 <details>
-<summary><i>E. coli</i>, 0.075 (<a href="validation/ecoli_075.nj_tree_clusters.html">interactive</a>, <a href="validation/ecoli_075.run_metrics.tsv">metrics</a>)</summary>
+<summary><i>E. coli</i>, 0.075 (<a href="evaluation/ecoli_075.nj_tree_clusters.html">interactive</a>, <a href="evaluation/ecoli_075.run_metrics.tsv">metrics</a>)</summary>
 
-![E. coli NJ tree with floc clusters by batch size, distance 0.075](validation/ecoli_075.nj_tree_clusters.png)
+![E. coli NJ tree with floc clusters by batch size, distance 0.075](evaluation/ecoli_075.nj_tree_clusters.png)
 </details>
 
 <details>
-<summary><i>E. coli</i>, 0.10 (<a href="validation/ecoli_10.nj_tree_clusters.html">interactive</a>, <a href="validation/ecoli_10.run_metrics.tsv">metrics</a>)</summary>
+<summary><i>E. coli</i>, 0.10 (<a href="evaluation/ecoli_10.nj_tree_clusters.html">interactive</a>, <a href="evaluation/ecoli_10.run_metrics.tsv">metrics</a>)</summary>
 
-![E. coli NJ tree with floc clusters by batch size, distance 0.10](validation/ecoli_10.nj_tree_clusters.png)
+![E. coli NJ tree with floc clusters by batch size, distance 0.10](evaluation/ecoli_10.nj_tree_clusters.png)
 </details>
 
 ## Results: _A. baumannii_
@@ -129,21 +129,21 @@ Each plot is a neighbour-joining tree of pairwise SNP distances with one column 
 - **0.10:** every batch size matched the reference exactly.
 
 <details>
-<summary><i>A. baumannii</i>, 0.05 (<a href="validation/abaum_05.nj_tree_clusters.html">interactive</a>, <a href="validation/abaum_05.run_metrics.tsv">metrics</a>)</summary>
+<summary><i>A. baumannii</i>, 0.05 (<a href="evaluation/abaum_05.nj_tree_clusters.html">interactive</a>, <a href="evaluation/abaum_05.run_metrics.tsv">metrics</a>)</summary>
 
-![A. baumannii NJ tree with floc clusters by batch size, distance 0.05](validation/abaum_05.nj_tree_clusters.png)
+![A. baumannii NJ tree with floc clusters by batch size, distance 0.05](evaluation/abaum_05.nj_tree_clusters.png)
 </details>
 
 <details>
-<summary><i>A. baumannii</i>, 0.075 (<a href="validation/abaum_075.nj_tree_clusters.html">interactive</a>, <a href="validation/abaum_075.run_metrics.tsv">metrics</a>)</summary>
+<summary><i>A. baumannii</i>, 0.075 (<a href="evaluation/abaum_075.nj_tree_clusters.html">interactive</a>, <a href="evaluation/abaum_075.run_metrics.tsv">metrics</a>)</summary>
 
-![A. baumannii NJ tree with floc clusters by batch size, distance 0.075](validation/abaum_075.nj_tree_clusters.png)
+![A. baumannii NJ tree with floc clusters by batch size, distance 0.075](evaluation/abaum_075.nj_tree_clusters.png)
 </details>
 
 <details>
-<summary><i>A. baumannii</i>, 0.10 (<a href="validation/abaum_10.nj_tree_clusters.html">interactive</a>, <a href="validation/abaum_10.run_metrics.tsv">metrics</a>)</summary>
+<summary><i>A. baumannii</i>, 0.10 (<a href="evaluation/abaum_10.nj_tree_clusters.html">interactive</a>, <a href="evaluation/abaum_10.run_metrics.tsv">metrics</a>)</summary>
 
-![A. baumannii NJ tree with floc clusters by batch size, distance 0.10](validation/abaum_10.nj_tree_clusters.png)
+![A. baumannii NJ tree with floc clusters by batch size, distance 0.10](evaluation/abaum_10.nj_tree_clusters.png)
 </details>
 
 ## Results: _S. aureus_
@@ -169,19 +169,19 @@ Each plot is a neighbour-joining tree of pairwise SNP distances with one column 
 - This dataset has only 4 close pairs, so it says less about keeping close pairs together than the other two datasets.
 
 <details>
-<summary><i>S. aureus</i>, 0.05 (<a href="validation/staph_05.nj_tree_clusters.html">interactive</a>, <a href="validation/staph_05.run_metrics.tsv">metrics</a>)</summary>
+<summary><i>S. aureus</i>, 0.05 (<a href="evaluation/staph_05.nj_tree_clusters.html">interactive</a>, <a href="evaluation/staph_05.run_metrics.tsv">metrics</a>)</summary>
 
-![S. aureus NJ tree with floc clusters by batch size, distance 0.05](validation/staph_05.nj_tree_clusters.png)
+![S. aureus NJ tree with floc clusters by batch size, distance 0.05](evaluation/staph_05.nj_tree_clusters.png)
 </details>
 
 <details>
-<summary><i>S. aureus</i>, 0.075 (<a href="validation/staph_075.nj_tree_clusters.html">interactive</a>, <a href="validation/staph_075.run_metrics.tsv">metrics</a>)</summary>
+<summary><i>S. aureus</i>, 0.075 (<a href="evaluation/staph_075.nj_tree_clusters.html">interactive</a>, <a href="evaluation/staph_075.run_metrics.tsv">metrics</a>)</summary>
 
-![S. aureus NJ tree with floc clusters by batch size, distance 0.075](validation/staph_075.nj_tree_clusters.png)
+![S. aureus NJ tree with floc clusters by batch size, distance 0.075](evaluation/staph_075.nj_tree_clusters.png)
 </details>
 
 <details>
-<summary><i>S. aureus</i>, 0.10 (<a href="validation/staph_10.nj_tree_clusters.html">interactive</a>, <a href="validation/staph_10.run_metrics.tsv">metrics</a>)</summary>
+<summary><i>S. aureus</i>, 0.10 (<a href="evaluation/staph_10.nj_tree_clusters.html">interactive</a>, <a href="evaluation/staph_10.run_metrics.tsv">metrics</a>)</summary>
 
-![S. aureus NJ tree with floc clusters by batch size, distance 0.10](validation/staph_10.nj_tree_clusters.png)
+![S. aureus NJ tree with floc clusters by batch size, distance 0.10](evaluation/staph_10.nj_tree_clusters.png)
 </details>

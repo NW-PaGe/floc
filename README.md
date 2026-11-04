@@ -89,5 +89,5 @@ floc assemblies/ -o db/
 floc new_assemblies/ db/sigs/ -o db/
 ```
 
-## Validation
-We tested whether the number of samples added per run (the batch size) changes floc's clusters, using 100 assemblies each of _E. coli_, _A. baumannii_ and _S. aureus_ at distance thresholds of 0.05, 0.075 and 0.10. A threshold of 0.075 was needed to reliably keep samples within 100 SNPs of each other in the same cluster, so it is floc's default. See [docs/validation.md](docs/validation.md).
+## Evaluation
+We tested whether the number of samples added per run (the batch size) changes floc's clusters, using 100 assemblies each of _E. coli_, _A. baumannii_ and _S. aureus_ at distance thresholds of 0.05, 0.075 and 0.10. A threshold of 0.075 was needed to reliably keep samples within 100 SNPs of each other in the same cluster, so it is floc's default. See [docs/evaluation.md](docs/evaluation.md).
