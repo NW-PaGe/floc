@@ -1,3 +1,5 @@
+<img src="assets/floc_logo.png" alt="floc logo" width="180" align="right">
+
 # Floc :beer:
 Floc is an iterative genome clustering tool. Genome assemblies are placed into new or existing clusters based on pairwise genetic distances. Genetic distance is estimated using the Sourmash k-mer containment method.
 
@@ -38,7 +40,7 @@ options:
   -o OUTDIR, --outdir OUTDIR
                         Output directory
   -d DISTANCE, --distance DISTANCE
-                        Distance threshold used to create clusters (default: 0.075)
+                        Distance threshold used to create clusters (default: 0.1)
   --ksize KSIZE         k-mer size
   --scaled SCALED       Scaling factor for signatures
   --batch BATCH         Number of sequences to cluster per batch
@@ -90,4 +92,4 @@ floc new_assemblies/ db/sigs/ -o db/
 ```
 
 ## Evaluation
-We tested whether the number of samples added per run (the batch size) changes floc's clusters, using 100 assemblies each of _E. coli_, _A. baumannii_ and _S. aureus_ at distance thresholds of 0.05, 0.075 and 0.10. A threshold of 0.075 was needed to reliably keep samples within 100 SNPs of each other in the same cluster, so it is floc's default. See [docs/evaluation.md](docs/evaluation.md).
+We tested whether the number of samples added per run (the batch size) changes floc's clusters, using 100 assemblies each of _E. coli_, _A. baumannii_ and _S. aureus_ at distance thresholds of 0.05, 0.075 and 0.10. A threshold of 0.075 was the minimum needed to reliably keep samples within 100 SNPs of each other in the same cluster, but 0.1 gave more consistent clusters between batch sizes, so 0.1 is floc's default. See [docs/evaluation.md](docs/evaluation.md).

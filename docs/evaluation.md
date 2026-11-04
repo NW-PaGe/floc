@@ -4,7 +4,9 @@ In routine surveillance, samples arrive a few at a time, so floc is run over and
 We tested this with [floc_val](https://github.com/DOH-JDJ0303/floc_val), a Nextflow pipeline that runs floc on the same assemblies at several batch sizes and compares the final clusters with each other and with pairwise SNP distances from [SKA2](https://github.com/bacpop/ska.rust). Samples are added in the same seeded random order at every batch size. The run that adds all samples in a single batch (batch size 100) is the reference.
 
 ## Summary
-**A distance threshold of 0.075 is needed to reliably keep closely related samples together.** How samples are added can change how some clusters form, but at 0.075 and 0.10, samples within 100 SNPs of each other ended up in the same cluster at every batch size in all three datasets. At 0.05, this held for _E. coli_ and _S. aureus_ but not for _A. baumannii_. Based on these results, floc's default `--distance` is 0.075.
+**A distance threshold of 0.075 is the minimum needed to reliably keep closely related samples together, but 0.1 gave more consistent clusters between batch sizes, so floc's default `--distance` is 0.1.** How samples are added can change how some clusters form, but at 0.075 and 0.10, samples within 100 SNPs of each other ended up in the same cluster at every batch size in all three datasets. At 0.05, this held for _E. coli_ and _S. aureus_ but not for _A. baumannii_.
+
+At 0.10, batch sizes 1, 10 and 50 gave the same clusters as each other in every dataset. They matched the reference exactly for _A. baumannii_ and _S. aureus_, and for _E. coli_ they all split the same single reference cluster. At 0.075, the results varied more with batch size: _E. coli_ gave 45, 46 and 45 clusters at batch sizes 1, 10 and 50, and _A. baumannii_ gave 10, 10 and 9.
 
 The table shows the lowest percentage of close pairs kept together across batch sizes 1, 10 and 50 (see [Metrics](#metrics)).
 
@@ -22,7 +24,7 @@ Raising the threshold also makes clusters more diverse. The largest SNP distance
 |_A. baumannii_|1,655|3,359|3,359|
 |_S. aureus_|1,528|1,528|1,528|
 
-For _E. coli_, clusters at 0.075 span about half as many SNPs as at 0.10. For _A. baumannii_, the most diverse cluster at 0.075 already matched 0.10. For _S. aureus_, the clusters did not change between thresholds.
+For _E. coli_, clusters at 0.10 span about twice as many SNPs as at 0.075 (4,134 vs about 2,000). For _A. baumannii_, the most diverse cluster was the same at 0.075 and 0.10. For _S. aureus_, the clusters did not change between thresholds. The more consistent clusters at 0.10 therefore come at the cost of broader _E. coli_ clusters.
 
 ## Datasets
 |Organism|Assemblies|Source|Selection|
