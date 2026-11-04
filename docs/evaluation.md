@@ -64,7 +64,7 @@ The reference run (batch size 100) is added automatically.
 The full statistics for each run are in the linked metrics files.
 
 ### Reading the plots
-Each plot is a neighbour-joining tree of pairwise SNP distances with one column of tiles per batch size. Each tile is colored to match the reference cluster it overlaps most. New colors are clusters with no match in the reference, and light grey tiles are singletons. GitHub cannot display interactive HTML, so the plots are static images; download the linked `.html` file and open it in a browser to hover over tiles.
+Each plot is a neighbor-joining tree of pairwise SNP distances with one column of tiles per batch size. Each tile is colored to match the reference cluster it overlaps most. New colors are clusters with no match in the reference, and light gray tiles are singletons. GitHub cannot display interactive HTML, so the plots are static images; download the linked `.html` file and open it in a browser to hover over tiles.
 
 ## Results: _E. coli_
 31 pairs of samples are within 100 SNPs of each other.
@@ -84,7 +84,7 @@ Each plot is a neighbour-joining tree of pairwise SNP distances with one column 
 |0.10|10|38|23|4,134|1,602|100%|
 |0.10|50|38|23|4,134|1,602|100%|
 
-- **0.05:** batch size 50 gave the same clusters as the reference. At batch sizes 1 and 10, a six-sample reference cluster was split into two clusters, and at batch size 1 one reference singleton joined a neighbouring cluster.
+- **0.05:** batch size 50 gave the same clusters as the reference. At batch sizes 1 and 10, a six-sample reference cluster was split into two clusters, and at batch size 1 one reference singleton joined a neighboring cluster.
 - **0.075:** smaller batch sizes split one (batch sizes 1 and 50) or two (batch size 10) reference clusters into smaller clusters.
 - **0.10:** at every batch size below 100, a seven-sample reference cluster was split into two clusters. This is why the smallest distance between clusters drops from 2,758 to 1,602 SNPs.
 - At every threshold and batch size, all 31 close pairs stayed in the same cluster.

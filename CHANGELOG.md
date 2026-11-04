@@ -12,11 +12,11 @@ All notable changes to floc are documented in this file.
   of each other always ended up in the same cluster, however samples were
   added, and 0.1 gave more consistent clusters between batch sizes (see
   `docs/evaluation.md`). Cluster assignments may differ from v1.2.3 on the
-  same inputs; use `--distance 0.03` to reproduce the previous behaviour.
+  same inputs; use `--distance 0.03` to reproduce the previous behavior.
 - Default `--assign-hash-freq` raised from 0.5 to 0.6, so each existing
   cluster is represented by hashes found in at least 60% of its members when
   new samples are assigned. Use `--assign-hash-freq 0.5` for the previous
-  behaviour.
+  behavior.
 
 ## [1.2.3] - 2026-11-02
 
@@ -37,7 +37,7 @@ All notable changes to floc are documented in this file.
 - `--assign-hash-freq` option (see above). `0` keeps every hash.
 - `--dbscan-metric {avg,min,max}` sets how the containments in both directions
   between two samples are combined into the distance used by DBSCAN
-  (default `avg`, the previous behaviour). The same distances are used for
+  (default `avg`, the previous behavior). The same distances are used for
   `--pairwise` and `--plot`.
 - The containments and distances behind each step are saved to the output
   directory, with the columns `id1,id2,id1_in_id2,id2_in_id1,distance`:
@@ -66,11 +66,11 @@ for v1.2.1 use `--assign-hash-freq 0`.
 ### Changed
 - Reverted the default `--assign-metric` from `avg` back to `query`
   (fraction of the sample's hashes found in the cluster's merged sketch), the
-  behaviour of v1.1 and earlier. Average containment only improved assignment
+  behavior of v1.1 and earlier. Average containment only improved assignment
   while clusters were small; as a cluster's merged sketch grows, the
   cluster-in-sample containment shrinks and drags the average down, so new
   samples increasingly fail to join clusters they belong to.
-  Use `--assign-metric avg` to get the v1.2.1 behaviour.
+  Use `--assign-metric avg` to get the v1.2.1 behavior.
 
 ## [1.2.1] - 2026-10-30
 
@@ -79,7 +79,7 @@ for v1.2.1 use `--assign-hash-freq 0`.
   sample-in-cluster and cluster-in-sample containment against each cluster's
   merged sketch. Previously only sample-in-cluster containment was used.
   Cluster assignments may differ from v1.1 on the same inputs; use
-  `--assign-metric query` to reproduce the previous behaviour.
+  `--assign-metric query` to reproduce the previous behavior.
 
 ### Added
 - `--assign-metric {query,min,max,avg}` option to choose the containment used

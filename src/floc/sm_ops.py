@@ -113,7 +113,7 @@ def _merged_distance(
 
     metric:
       query  1 - containment of the sample in the cluster sketch (fraction of the
-             sample's hashes found in the cluster). Original behaviour.
+             sample's hashes found in the cluster). Original behavior.
       min    1 - min(sample-in-cluster, cluster-in-sample)
       max    1 - max(sample-in-cluster, cluster-in-sample)
       avg    1 - mean(sample-in-cluster, cluster-in-sample)

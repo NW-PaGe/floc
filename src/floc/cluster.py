@@ -420,7 +420,7 @@ def nj_tree(
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=edge_x, y=edge_y,
-        mode="lines", line=dict(color="grey", width=1),
+        mode="lines", line=dict(color="gray", width=1),
         hoverinfo="skip", showlegend=False,
     ))
 
