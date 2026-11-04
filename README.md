@@ -38,7 +38,7 @@ options:
   -o OUTDIR, --outdir OUTDIR
                         Output directory
   -d DISTANCE, --distance DISTANCE
-                        Distance threshold used to create clusters (default: 0.05)
+                        Distance threshold used to create clusters (default: 0.075)
   --ksize KSIZE         k-mer size
   --scaled SCALED       Scaling factor for signatures
   --batch BATCH         Number of sequences to cluster per batch
@@ -88,3 +88,6 @@ floc assemblies/ -o db/
 ```
 floc new_assemblies/ db/sigs/ -o db/
 ```
+
+## Validation
+We tested whether the number of samples added per run (the batch size) changes floc's clusters, using 100 clinical _E. coli_ and _A. baumannii_ samples at distance thresholds of 0.05, 0.075 and 0.10. A threshold of 0.075 was needed to reliably keep samples within 100 SNPs of each other in the same cluster, so it is floc's default. See [docs/validation.md](docs/validation.md).

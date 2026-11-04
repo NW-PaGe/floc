@@ -23,7 +23,7 @@ def build_parser():
     )
     p.add_argument("-o", "--outdir", default="./", help="Output directory")
     p.add_argument(
-        "-d", "--distance", default=0.05, type=float,
+        "-d", "--distance", default=0.075, type=float,
         help="Distance threshold used to create clusters (default: %(default)s)"
     )
     p.add_argument("--ksize", default=31, type=int, help="k-mer size")

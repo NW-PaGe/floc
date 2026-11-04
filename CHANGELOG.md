@@ -5,10 +5,13 @@ All notable changes to floc are documented in this file.
 ## [1.2.4] - 2026-11-03
 
 ### Changed
-- Default `--distance` raised from 0.03 to 0.05, so samples up to about 5%
-  apart (1 - containment) are now clustered together. Cluster assignments may
-  differ from v1.2.3 on the same inputs; use `--distance 0.03` to reproduce
-  the previous behaviour.
+- Default `--distance` raised from 0.03 to 0.075, so samples up to about 7.5%
+  apart (1 - containment) are now clustered together. In batch-size validation
+  on 100 clinical _E. coli_ and _A. baumannii_ samples, 0.075 was the lowest
+  threshold tested at which samples within 100 SNPs of each other always ended
+  up in the same cluster, however samples were added (see
+  `docs/validation.md`). Cluster assignments may differ from v1.2.3 on the
+  same inputs; use `--distance 0.03` to reproduce the previous behaviour.
 - Default `--assign-hash-freq` raised from 0.5 to 0.6, so each existing
   cluster is represented by hashes found in at least 60% of its members when
   new samples are assigned. Use `--assign-hash-freq 0.5` for the previous
