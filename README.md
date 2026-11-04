@@ -94,4 +94,9 @@ floc new_assemblies/ db/sigs/ -o db/
 ```
 
 ## Evaluation
-We tested whether the number of samples added per run (the batch size) changes floc's clusters, using 100 assemblies each of _E. coli_, _A. baumannii_ and _S. aureus_ at distance thresholds of 0.05, 0.075 and 0.10. A threshold of 0.075 was the minimum needed to reliably keep samples within 100 SNPs of each other in the same cluster, but 0.1 gave more consistent clusters between batch sizes, so 0.1 is floc's default. See [docs/evaluation.md](docs/evaluation.md).
+The consistency of floc clusters was tested by changing the batch size, which is the number of samples added to the database at a time. Samples were added in batches of 1, 10, 50 and 100 using 100 assemblies each of _E. coli_, _A. baumannii_ and _S. aureus_, at distance thresholds of 0.05, 0.075 and 0.1.
+
+- A threshold of 0.075 was the minimum needed to reliably keep samples within 100 SNPs of each other in the same cluster.
+- A threshold of 0.1 gave more consistent clusters between batch sizes.
+
+This is the rationale behind using 0.1 as the default distance threshold! See [docs/evaluation.md](docs/evaluation.md).
