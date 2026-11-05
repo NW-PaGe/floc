@@ -27,8 +27,8 @@ docker run --rm -v "$PWD":/work -w /work \
 ## Usage
 ```
 usage: floc [-h] [-o OUTDIR] [-d DISTANCE] [--ksize KSIZE] [--scaled SCALED] [--batch BATCH] [--ignore-qc] [--skip-qc]
-            [--min-hash-freq MIN_HASH_FREQ] [--min-hash-frac MIN_HASH_FRAC] [--overwrite] [--plot] [--pairwise]
-            [--assign-metric {avg,min,max,query}] [--assign-hash-freq ASSIGN_HASH_FREQ]
+            [--min-hash-freq MIN_HASH_FREQ] [--global-hash-freq GLOBAL_HASH_FREQ] [--min-hash-frac MIN_HASH_FRAC]
+            [--overwrite] [--plot] [--pairwise] [--assign-metric {avg,min,max,query}] [--assign-hash-freq ASSIGN_HASH_FREQ]
             [--dbscan-metric {avg,min,max}] [--version]
             input [input ...]
 
@@ -49,10 +49,13 @@ options:
   --ignore-qc           Remove samples that fail QC without failing
   --skip-qc             Skip QC
   --min-hash-freq MIN_HASH_FREQ
-                        QC: build the global hash from k-mers found in more than this fraction of all samples
+                        QC: filter hashes not observed in more than this fraction of samples from the global hash
                         (default: 0.05)
+  --global-hash-freq GLOBAL_HASH_FREQ
+                        Filter hashes not observed in more than this fraction of samples before clustering; write
+                        unfiltered signatures (default: 0.05)
   --min-hash-frac MIN_HASH_FRAC
-                        QC: a sample fails if less than this fraction of its k-mers are in the global hash built with
+                        QC: fail samples with less than this fraction of hashes in the global hash filtered with
                         --min-hash-freq (default: 0.5)
   --overwrite           Overwrite existing signature files
   --plot                Create PCoA and NJ tree plots. Can take a long time with many samples.

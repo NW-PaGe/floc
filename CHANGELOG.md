@@ -17,6 +17,25 @@ All notable changes to floc are documented in this file.
   cluster is represented by hashes found in at least 60% of its members when
   new samples are assigned. Use `--assign-hash-freq 0.5` for the previous
   behavior.
+- Build the global hash once from new and database samples. Filter it at
+  `--min-hash-freq` for QC and at `--global-hash-freq` for clustering.
+- Cluster, assign, `--pairwise` and `--plot` on filtered sketches. Expect
+  smaller distances than without the filter. The evaluation in
+  `docs/evaluation.md` behind the default `--distance` of 0.1 ran without this
+  filter; use `--global-hash-freq 0` to reproduce it.
+- Write unfiltered signatures, and recompute the filter against the whole
+  database on each run.
+- Log hashes per sample before and after filtering, and warn when a sample has
+  no hashes left.
+
+### Added
+- `--global-hash-freq` (default 0.10): filter hashes not observed in more than
+  this fraction of samples before clustering. `0` keeps every hash. Applies with
+  `--skip-qc` too.
+
+### Notes
+- `dbscan.csv` keeps rows from earlier runs, so an existing output directory
+  mixes distances from before and after this change.
 
 ## [1.2.3] - 2026-11-02
 

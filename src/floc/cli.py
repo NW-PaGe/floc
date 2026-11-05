@@ -10,7 +10,7 @@ from itertools import combinations
 from .io_ops import parse_input, write_cluster_csv, write_pairwise, clear_pairwise, PAIR_FILES
 from .sm_ops import DistanceCache, build_minhash_map, load_minhash_map, write_sigs
 from .cluster import group_clusters, assign_to_cluster, create_new_clusters, pcoa_plot, nj_tree, calculate_cluster_distances
-from .qc import global_containment
+from .qc import global_containment, build_raw_global, filter_to_global
 from . import __version__
 
 
@@ -31,8 +31,9 @@ def build_parser():
     p.add_argument("--batch", default=1000, type=int, help="Number of sequences to cluster per batch")
     p.add_argument("--ignore-qc", action="store_true", help="Remove samples that fail QC without failing")
     p.add_argument("--skip-qc", action="store_true", help="Skip QC")
-    p.add_argument("--min-hash-freq", type=float, default=0.05, help="QC: build the global hash from k-mers found in more than this fraction of all samples (default: %(default)s)")
-    p.add_argument("--min-hash-frac", type=float, default=0.5, help="QC: a sample fails if less than this fraction of its k-mers are in the global hash built with --min-hash-freq (default: %(default)s)")
+    p.add_argument("--min-hash-freq", type=float, default=0.05, help="QC: filter hashes not observed in more than this fraction of samples from the global hash (default: %(default)s)")
+    p.add_argument("--global-hash-freq", type=float, default=0.05, help="Filter hashes not observed in more than this fraction of samples before clustering; write unfiltered signatures (default: %(default)s)")
+    p.add_argument("--min-hash-frac", type=float, default=0.5, help="QC: fail samples with less than this fraction of hashes in the global hash filtered with --min-hash-freq (default: %(default)s)")
     p.add_argument("--overwrite", action="store_true", help="Overwrite existing signature files")
     p.add_argument("--plot", dest="plot", action="store_true", help="Create PCoA and NJ tree plots. Can take a long time with many samples.")
     p.add_argument("--pairwise", action="store_true", help="Compute pairwise distance matrix for each cluster with a new sample.")
@@ -50,6 +51,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if not 0 <= args.assign_hash_freq <= 1:
         parser.error("--assign-hash-freq must be between 0 and 1")
+    if not 0 <= args.global_hash_freq <= 1:
+        parser.error("--global-hash-freq must be between 0 and 1")
 
     start = time.time()
     logger.info(f"floc v{__version__} starting")
@@ -87,19 +90,24 @@ def main(argv=None):
             logger.warning("No new sequences to cluster. Nothing to do.")
             return 0
 
+        # --- Build the raw global hash once for QC and global hash filtering ---
+        raw_global = build_raw_global(mh_fx | mh_sig)
+
         # --- Quality control ---
         if not args.skip_qc:
             fx_keys = list(mh_fx.keys())
 
-            # Filter samples with low global containment
-            mh_global = mh_fx | mh_sig if mh_sig else mh_fx
-            mh_fx = global_containment(mh_fx, mh_global, min_hash_frac=args.min_hash_frac, min_hash_freq=args.min_hash_freq, outfile=os.path.join(args.outdir, 'global_containment.csv'))
+            # Remove samples with low containment in the QC global
+            mh_fx = global_containment(mh_fx, raw_global, min_hash_frac=args.min_hash_frac, min_hash_freq=args.min_hash_freq, outfile=os.path.join(args.outdir, 'global_containment.csv'))
 
             if not args.ignore_qc:
                 if len(fx_keys) != len(mh_fx):
                     failed = '\n\t'.join([sid for sid in fx_keys if sid not in mh_fx]) + '\n'
                     logging.error(f"One or more sample failed QC. Remove them to continue or re-run with '--ignore-qc':\n\n\t{failed}")
                     sys.exit(1)
+
+        # --- Filter each sample's hashes against the global hash ---
+        mh_fx, mh_sig = filter_to_global(raw_global, args.global_hash_freq, mh_fx, mh_sig)
 
         assign_hash_freq = args.assign_hash_freq
         os.makedirs(args.outdir, exist_ok=True)

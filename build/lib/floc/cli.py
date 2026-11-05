@@ -1,0 +1,188 @@
+import os
+import sys
+import time
+import argparse
+import logging
+
+from .utils import set_up_logging
+from itertools import combinations
+
+from .io_ops import parse_input, write_cluster_csv, write_pairwise, clear_pairwise, PAIR_FILES
+from .sm_ops import DistanceCache, build_minhash_map, load_minhash_map, write_sigs
+from .cluster import group_clusters, assign_to_cluster, create_new_clusters, pcoa_plot, nj_tree, calculate_cluster_distances
+from .qc import global_containment, build_raw_global, filter_to_global
+from . import __version__
+
+
+def build_parser():
+    p = argparse.ArgumentParser(
+        description="floc: Genomic clustering tool for population-level surveillance"
+    )
+    p.add_argument( "input", nargs="+", default=["./"],
+        help="Files or directories containing input files (FASTA, FASTQ, or Sourmash signatures)"
+    )
+    p.add_argument("-o", "--outdir", default="./", help="Output directory")
+    p.add_argument(
+        "-d", "--distance", default=0.1, type=float,
+        help="Distance threshold used to create clusters (default: %(default)s)"
+    )
+    p.add_argument("--ksize", default=31, type=int, help="k-mer size")
+    p.add_argument("--scaled", default=100, type=int, help="Scaling factor for signatures")
+    p.add_argument("--batch", default=1000, type=int, help="Number of sequences to cluster per batch")
+    p.add_argument("--ignore-qc", action="store_true", help="Remove samples that fail QC without failing")
+    p.add_argument("--skip-qc", action="store_true", help="Skip QC")
+    p.add_argument("--min-hash-freq", type=float, default=0.05, help="QC: filter hashes not observed in more than this fraction of samples from the global hash (default: %(default)s)")
+    p.add_argument("--global-hash-freq", type=float, default=0.10, help="Filter hashes not observed in more than this fraction of samples before clustering; write unfiltered signatures (default: %(default)s)")
+    p.add_argument("--min-hash-frac", type=float, default=0.5, help="QC: fail samples with less than this fraction of hashes in the global hash filtered with --min-hash-freq (default: %(default)s)")
+    p.add_argument("--overwrite", action="store_true", help="Overwrite existing signature files")
+    p.add_argument("--plot", dest="plot", action="store_true", help="Create PCoA and NJ tree plots. Can take a long time with many samples.")
+    p.add_argument("--pairwise", action="store_true", help="Compute pairwise distance matrix for each cluster with a new sample.")
+    p.add_argument("--assign-metric", choices=["avg", "min", "max", "query"], default="avg", help="Containment metric used to assign new samples to existing clusters: avg, min, max, or query (default: %(default)s)")
+    p.add_argument("--assign-hash-freq", type=float, default=0.60, help="Assign new samples using cluster hashes built using k-mers present in at least this fraction of the cluster samples (default: %(default)s)")
+    p.add_argument("--dbscan-metric", choices=["avg", "min", "max"], default="avg", help="Containment metric used by DBSCAN; also used for --pairwise and --plot (default: %(default)s)")
+    p.add_argument("--version", action="version", version=__version__)
+    return p
+
+def main(argv=None):
+    argv = argv or sys.argv[1:]
+    set_up_logging()
+    logger = logging.getLogger(__name__)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if not 0 <= args.assign_hash_freq <= 1:
+        parser.error("--assign-hash-freq must be between 0 and 1")
+    if not 0 <= args.global_hash_freq <= 1:
+        parser.error("--global-hash-freq must be between 0 and 1")
+
+    start = time.time()
+    logger.info(f"floc v{__version__} starting")
+
+    args_smry = ', '.join([f"{k}={v}" for k, v in vars(args).items() if k not in ['input', 'outdir']])
+    logger.info(f"args: {args_smry}")
+
+    try:
+        dist_cache = DistanceCache(metric=args.dbscan_metric)
+
+        # Parse inputs: separate FASTA/FASTQ and signatures
+        input_fx, input_sig = parse_input(args.input, args.overwrite)
+        logger.info(f"Found {len(input_fx)} FASTA/FASTQ and {len(input_sig)} signature files")
+
+        # --- Build new MinHashes (FASTA/FASTQ) ---
+        if input_fx:
+            logger.info("Building new MinHash signatures from sequence files...")
+            mh_fx = build_minhash_map(input_fx, args.ksize, scaled=args.scaled)
+            logger.info(f"Built {len(mh_fx)} MinHash objects")
+        else:
+            mh_fx = {}
+            logger.info("No FASTA/FASTQ inputs detected; skipping new MinHash generation.")
+
+        # --- Load existing signatures ---
+        if input_sig:
+            logger.info("Loading existing signature files...")
+            mh_sig = load_minhash_map(input_sig, ksize=args.ksize, scaled=args.scaled)
+            logger.info(f"Loaded {len(mh_sig)} signature MinHashes")
+        else:
+            mh_sig = {}
+            logger.info("No existing signature files found; starting from scratch.")
+
+        # --- Proceed only if new sequences exist ---
+        if not mh_fx:
+            logger.warning("No new sequences to cluster. Nothing to do.")
+            return 0
+
+        # --- Build the raw global hash once for QC and global hash filtering ---
+        raw_global = build_raw_global(mh_fx | mh_sig)
+
+        # --- Quality control ---
+        if not args.skip_qc:
+            fx_keys = list(mh_fx.keys())
+
+            # Remove samples with low containment in the QC global
+            mh_fx = global_containment(mh_fx, raw_global, min_hash_frac=args.min_hash_frac, min_hash_freq=args.min_hash_freq, outfile=os.path.join(args.outdir, 'global_containment.csv'))
+
+            if not args.ignore_qc:
+                if len(fx_keys) != len(mh_fx):
+                    failed = '\n\t'.join([sid for sid in fx_keys if sid not in mh_fx]) + '\n'
+                    logging.error(f"One or more sample failed QC. Remove them to continue or re-run with '--ignore-qc':\n\n\t{failed}")
+                    sys.exit(1)
+
+        # --- Filter each sample's hashes against the global hash ---
+        mh_fx, mh_sig = filter_to_global(raw_global, args.global_hash_freq, mh_fx, mh_sig)
+
+        assign_hash_freq = args.assign_hash_freq
+        os.makedirs(args.outdir, exist_ok=True)
+        clear_pairwise(args.outdir)
+
+        # --- If there are existing clusters, group them ---
+        if mh_sig:
+            mh_clust = group_clusters(mh_sig)
+            logger.info(f"Grouped existing signatures into {len(mh_clust)} clusters.")
+        else:
+            mh_clust = {}
+            logger.info("No pre-existing clusters detected.")
+
+        # --- Assign new samples to clusters ---
+        if mh_clust:
+            logger.info("Assigning new sequences to existing clusters...")
+            assigned, remainder = assign_to_cluster(mh_fx, mh_clust, args.distance,
+                                                    metric=args.assign_metric,
+                                                    min_member_frac=assign_hash_freq,
+                                                    outdir=args.outdir)
+            logger.info(f"Assigned {len(assigned)} sequences; {len(remainder)} unassigned remain.")
+
+            # IMPORTANT: merge assigned into mh_clust so they appear in outputs
+            for qid, rec in assigned.items():
+                clabel = str(rec['cluster'])
+                mh_clust.setdefault(clabel, {})[qid] = rec
+        else:
+            assigned, remainder = {}, mh_fx  # everything unassigned
+
+        # --- Cluster the remaining sequences (new cluster creation) ---
+        if remainder:
+            logger.info("Clustering remaining sequences...")
+            mh_clust = create_new_clusters(
+                remainder, dist_cache, args.distance, args.batch,
+                min_samples=1, existing=mh_clust,
+                metric=args.assign_metric, min_member_frac=assign_hash_freq,
+                outdir=args.outdir,
+            )
+            logger.info(f"Total clusters after processing: {len(mh_clust)}")
+        else:
+            logger.info("No remaining unassigned sequences to cluster.")
+
+
+        # --- Calculate pairwise distances within clusters with new samples ---
+        if args.pairwise:
+            calculate_cluster_distances(mh_fx.keys(), mh_clust, dist_cache, args.outdir)
+                
+
+        # --- Flatten and write outputs ---
+        if mh_clust:
+            mh_out = {sid: rec for clabel, members in mh_clust.items() for sid, rec in members.items()}
+            logger.info(f"Writing {len(mh_out)} signatures to {args.outdir}")
+            write_sigs(mh_out, args.outdir)
+
+            csv_path = write_cluster_csv(mh_clust, args.outdir)
+            if csv_path:
+                logger.info(f"Wrote cluster summary CSV → {csv_path}")
+
+            if args.plot:
+                pcoa_plot(mh_out, dist_cache, save_html=os.path.join(args.outdir, 'pcoa.html'))
+                nj_tree(mh_out, dist_cache, save_html=os.path.join(args.outdir, 'nj_tree.html'), save_newick=os.path.join(args.outdir, 'nj_tree.nwk'))
+                write_pairwise(os.path.join(args.outdir, PAIR_FILES["plot"]),
+                               combinations(mh_out, 2), dist_cache)
+
+        else:
+            logger.warning("No clusters found; nothing to write.")
+
+        elapsed = time.time() - start
+        logger.info(f"floc completed successfully in {elapsed:.1f}s")
+        return 0
+
+    except Exception:
+        logger.exception("Fatal error after %.1fs", time.time() - start)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

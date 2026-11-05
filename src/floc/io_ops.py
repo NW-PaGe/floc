@@ -11,12 +11,10 @@ PAIR_FIELDS = ["id1", "id2", "id1_in_id2", "id2_in_id1", "distance"]
 
 
 def write_pairwise(path: str, pairs, cache) -> int:
-    """Append one row per (id1, id2) pair to the CSV at `path`, taking the
-    distance and both containments from `cache` (a sm_ops.DistanceCache).
-
-    The header is written when the file is new, so repeated calls during a run
-    (e.g. one per DBSCAN batch) build up a single file. Pairs that were never
-    compared are skipped. Returns the number of rows written.
+    """
+    Append one row per (id1, id2) pair to the CSV at path, with distances and containments from cache.
+    Write the header only for a new file, so repeated calls build one file.
+    Skip pairs missing from cache and return the number of rows written.
     """
     new = not os.path.exists(path) or os.path.getsize(path) == 0
     n = 0
@@ -35,8 +33,7 @@ def write_pairwise(path: str, pairs, cache) -> int:
 
 
 def clear_pairwise(outdir: str) -> None:
-    """Remove pairwise files left by a previous run in `outdir`, except those in
-    PAIR_FILES_KEPT (dbscan.csv), which new runs add to."""
+    """Remove pairwise files from a previous run in outdir, except PAIR_FILES_KEPT (dbscan.csv)."""
     for key, name in PAIR_FILES.items():
         if key in PAIR_FILES_KEPT:
             continue
@@ -46,9 +43,8 @@ def clear_pairwise(outdir: str) -> None:
 
 def drop_ext(filepath: str) -> str:
     """
-    Return basename without compression and primary extension.
-    Handles names like: sample.R1.fastq.gz -> sample.R1
-    Also: sample.sig.gz -> sample, sample.fa -> sample
+    Return the basename without compression and primary extensions.
+    Examples: sample.R1.fastq.gz -> sample.R1; sample.sig.gz -> sample; sample.fa -> sample.
     """
     base = os.path.basename(filepath)
     # strip one compression layer if present
@@ -63,9 +59,7 @@ def _is_sig(path: str) -> bool:
     return low.endswith('.sig') or low.endswith('.sig.gz')
 
 def _is_seq(path: str) -> bool:
-    """
-    Checks for (fa|fasta|fna|fq|fastq) with or without .gz
-    """
+    """Match FASTA and FASTQ extensions (fa, fasta, fna, fq, fastq), with or without .gz."""
     low = path.lower()
     if low.endswith('.gz'):
         low = low[:-3]  # remove .gz
@@ -74,15 +68,9 @@ def _is_seq(path: str) -> bool:
 
 def parse_input(inputs: List[str], overwrite: bool) -> Tuple[Dict[str, str], Dict[str, str]]:
     """
-    Scan a list of directories (or files) and build:
-      fx   : {basename -> seq file path} for FASTA/FASTQ
-      sigs : {basename -> signature file path} for .sig/.sig.gz
-
-    Rules:
-      - Basenames must be unique within each category.
-      - If both seq and sig exist for the same basename:
-          * overwrite=True  -> keep the seq; drop the existing sig (it will be regenerated)
-          * overwrite=False -> error out with guidance
+    Map basenames to FASTA/FASTQ paths and to signature paths from the given files and directories.
+    Raise an error on duplicate basenames within a type.
+    When a sequence and signature share a basename, drop the signature if overwrite is set; otherwise raise an error.
     """
     files: List[str] = []
     for p in inputs:
@@ -135,24 +123,8 @@ def parse_input(inputs: List[str], overwrite: bool) -> Tuple[Dict[str, str], Dic
 
 def write_cluster_csv(mh_clust: Dict[str, Dict[str, Any]], outdir: str, filename: str = "clusters.csv") -> str:
     """
-    Write a CSV summarizing the final clusters.
-
-    Parameters
-    ----------
-    mh_clust : dict
-        Dictionary of clusters in the form:
-            { cluster_label: { sid: {'mh': MinHash, 'cluster': cluster_label, ...}, ... }, ... }
-
-    outdir : str
-        Directory where the CSV will be written.
-
-    filename : str, optional
-        Output CSV filename (default: 'clusters.csv').
-
-    Returns
-    -------
-    str
-        Path to the written CSV file.
+    Write each sample's cluster label from mh_clust to outdir/filename.
+    Return the CSV path.
     """
     if not mh_clust:
         logging.warning("No clusters found — skipping CSV export.")

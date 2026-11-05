@@ -1,0 +1,141 @@
+Metadata-Version: 2.4
+Name: floc
+Version: 1.2.4
+Summary: Genomic clustering tool for population-level surveillance
+Author-email: Jared Johnson <jared.johnson@doh.wa.gov>
+License:                                  Apache License
+                                   Version 2.0, January 2004
+                                http://www.apache.org/licenses/
+        
+        TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+        
+        Copyright 2025 Washington State Department of Health
+        
+        Licensed under the Apache License, Version 2.0 (the "License");
+        you may not use this file except in compliance with the License.
+        You may obtain a copy of the License at
+        
+           http://www.apache.org/licenses/LICENSE-2.0
+        
+        Unless required by applicable law or agreed to in writing, software
+        distributed under the License is distributed on an "AS IS" BASIS,
+        WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+        See the License for the specific language governing permissions and
+        limitations under the License.
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy>=1.26.4
+Requires-Dist: screed<1.2,>=1.1
+Requires-Dist: psutil>=5.9
+Requires-Dist: plotly>=5.20
+Requires-Dist: sourmash<5.0,>=4.8
+Requires-Dist: scikit-learn
+Requires-Dist: biopython>=1.84
+Dynamic: license-file
+
+<p align="center">
+  <img src="assets/floc_logo.png" alt="floc logo" width="400">
+</p>
+
+# Floc :beer:
+Floc is an iterative genome clustering tool. Genome assemblies are placed into new or existing clusters based on pairwise genetic distances. Genetic distance is estimated using the Sourmash k-mer containment method.
+
+:rainbow: **Fun Fact:** Floc is short for _flocculate_, which is a term often used in fermentation (like a **sourmash**!) to describe the coalescence of suspended particles (yeast, protein, etc.,)!
+
+## Installation
+### From source
+```
+git clone https://github.com/NW-PaGe/floc
+conda create -n floc python=3.11
+conda activate floc
+pip install "setuptools<70" wheel
+pip install --no-build-isolation floc/
+```
+
+### With Docker
+```
+docker run --rm -v "$PWD":/work -w /work \
+    public.ecr.aws/o8h2f0o1/floc:1.2.4 \
+    floc --help
+```
+
+## Usage
+```
+usage: floc [-h] [-o OUTDIR] [-d DISTANCE] [--ksize KSIZE] [--scaled SCALED] [--batch BATCH] [--ignore-qc] [--skip-qc]
+            [--min-hash-freq MIN_HASH_FREQ] [--global-hash-freq GLOBAL_HASH_FREQ] [--min-hash-frac MIN_HASH_FRAC]
+            [--overwrite] [--plot] [--pairwise] [--assign-metric {avg,min,max,query}] [--assign-hash-freq ASSIGN_HASH_FREQ]
+            [--dbscan-metric {avg,min,max}] [--version]
+            input [input ...]
+
+floc: Genomic clustering tool for population-level surveillance
+
+positional arguments:
+  input                 Files or directories containing input files (FASTA, FASTQ, or Sourmash signatures)
+
+options:
+  -h, --help            show this help message and exit
+  -o OUTDIR, --outdir OUTDIR
+                        Output directory
+  -d DISTANCE, --distance DISTANCE
+                        Distance threshold used to create clusters (default: 0.1)
+  --ksize KSIZE         k-mer size
+  --scaled SCALED       Scaling factor for signatures
+  --batch BATCH         Number of sequences to cluster per batch
+  --ignore-qc           Remove samples that fail QC without failing
+  --skip-qc             Skip QC
+  --min-hash-freq MIN_HASH_FREQ
+                        QC: filter hashes not observed in more than this fraction of samples from the global hash
+                        (default: 0.05)
+  --global-hash-freq GLOBAL_HASH_FREQ
+                        Filter hashes not observed in more than this fraction of samples before clustering; write
+                        unfiltered signatures (default: 0.1)
+  --min-hash-frac MIN_HASH_FRAC
+                        QC: fail samples with less than this fraction of hashes in the global hash filtered with
+                        --min-hash-freq (default: 0.5)
+  --overwrite           Overwrite existing signature files
+  --plot                Create PCoA and NJ tree plots. Can take a long time with many samples.
+  --pairwise            Compute pairwise distance matrix for each cluster with a new sample.
+  --assign-metric {avg,min,max,query}
+                        Containment metric used to assign new samples to existing clusters: avg, min, max, or query
+                        (default: avg)
+  --assign-hash-freq ASSIGN_HASH_FREQ
+                        Assign new samples using cluster hashes built using k-mers present in at least this fraction
+                        of the cluster samples (default: 0.6)
+  --dbscan-metric {avg,min,max}
+                        Containment metric used by DBSCAN; also used for --pairwise and --plot (default: avg)
+  --version             show program's version number and exit
+```
+
+## Outputs
+|File / Directory|Description|
+|-|-|
+|`clusters.csv`|Cluster results for each sample in input|
+|`sigs/*`|Sourmash signature files. These contain cluster information in the `filename` field and can be re-used for iterative clustering|
+|`pcoa.html`|PCoA plot generated from all pairwise distances. Only created if run with `--plot`|
+|`nj_tree.html` & `nj_tree.nwk`|Neighbor-joining tree plot and newick file generated from all pairwise distances. Only created if run with `--plot`|
+|`global_containment.csv`|Per-sample summary of minhash global containment|
+|`assign.csv`|Each new sample compared with the merged sketch of each existing cluster during assignment (`id2` is the cluster label)|
+|`dbscan.csv`|Pairwise comparisons between samples clustered with DBSCAN. New runs add to this file rather than replacing it, so it keeps a record of every DBSCAN comparison made in this output directory|
+|`plot.csv`|Pairwise comparisons between all samples used for the plots. Only created if run with `--plot`|
+
+`assign.csv`, `dbscan.csv` and `plot.csv` share the columns `id1,id2,id1_in_id2,id2_in_id1,distance`: the fraction of `id1`'s hashes found in `id2`, the reverse, and the distance floc used (set by `--assign-metric` for `assign.csv` and by `--dbscan-metric` for `dbscan.csv` and `plot.csv`). Each file is only written when that step runs. `assign.csv` and `plot.csv` are replaced on each run; `dbscan.csv` is added to.
+
+## Example
+### 1. Running for the first time
+```
+floc assemblies/ -o db/
+```
+
+### 2. Running any time after
+```
+floc new_assemblies/ db/sigs/ -o db/
+```
+
+## Evaluation
+The consistency of floc clusters was tested by changing the batch size, which is the number of samples added to the database at a time. Samples were added in batches of 1, 10, 50 and 100 using 100 assemblies each of _E. coli_, _A. baumannii_ and _S. aureus_, at distance thresholds of 0.05, 0.075 and 0.1.
+
+- A threshold of 0.075 was the minimum needed to reliably keep samples within 100 SNPs of each other in the same cluster.
+- A threshold of 0.1 gave more consistent clusters between batch sizes.
+
+This is the rationale behind using 0.1 as the default distance threshold! See [docs/evaluation.md](docs/evaluation.md).

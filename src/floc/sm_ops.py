@@ -20,8 +20,7 @@ PAIR_METRICS = ("avg", "min", "max")             # sample vs sample (must be sym
 
 
 def _combine(a_in_b: float, b_in_a: float, metric: str) -> float:
-    """Combine the containments in both directions into one similarity.
-    'query' uses a_in_b only."""
+    """Combine the containments in both directions into one similarity; 'query' uses a_in_b only."""
     if metric == "query":
         return a_in_b
     if metric == "min":
@@ -34,14 +33,10 @@ def _combine(a_in_b: float, b_in_a: float, metric: str) -> float:
 
 
 class DistanceCache:
-    """Symmetric key cache: cache[(a, b)] == cache[(b, a)].
-
-    Alongside each distance it can hold the two containments behind it, so they
-    can be written out later without being recomputed (see io_ops.write_pairwise).
-
-    `metric` sets how _distance() combines the two containments of a sample pair
-    (one of PAIR_METRICS). It belongs to the cache so that every distance stored
-    in it was computed the same way.
+    """
+    Cache distances under symmetric keys, so cache[(a, b)] == cache[(b, a)].
+    Store the two containments behind each distance for io_ops.write_pairwise.
+    Combine pair containments with metric (one of PAIR_METRICS) so every stored distance uses the same metric.
     """
     def __init__(self, metric: str = "avg") -> None:
         if metric not in PAIR_METRICS:
@@ -65,7 +60,7 @@ class DistanceCache:
             self._c[k] = (float(a_in_b), float(b_in_a)) if k == (a, b) else (float(b_in_a), float(a_in_b))
 
     def get_containments(self, a: Any, b: Any) -> Optional[Tuple[float, float]]:
-        """(a in b, b in a), or None if not stored."""
+        """Return (a in b, b in a), or None if the cache does not hold them."""
         k = self._key(a, b)
         c = self._c.get(k)
         if c is None:
@@ -80,9 +75,10 @@ def _distance(
     mh_map: Dict[str, Dict[str, Any]],  # expects {'mh': sm.MinHash, 'cluster': ...}
     cache: DistanceCache,
 ) -> float:
-    """Cached distance between two samples: 1 - the containments in both
-    directions combined with cache.metric ('avg' is the same as
-    MinHash.avg_containment)."""
+    """
+    Return the cached distance between two samples: 1 minus their containments combined with cache.metric.
+    'avg' matches MinHash.avg_containment.
+    """
     cached = cache.get(a, b)
     if cached is not None:
         return cached
@@ -109,14 +105,12 @@ def _merged_distance(
     cache: DistanceCache,
     metric: str = "query",
 ) -> float:
-    """Cached distance between a sample (a) and a merged cluster sketch (b).
-
-    metric:
-      query  1 - containment of the sample in the cluster sketch (fraction of the
-             sample's hashes found in the cluster). Original behavior.
-      min    1 - min(sample-in-cluster, cluster-in-sample)
-      max    1 - max(sample-in-cluster, cluster-in-sample)
-      avg    1 - mean(sample-in-cluster, cluster-in-sample)
+    """
+    Return the cached distance between sample a and merged cluster sketch b.
+    query: 1 - containment of a in b
+    min:   1 - min(a in b, b in a)
+    max:   1 - max(a in b, b in a)
+    avg:   1 - mean(a in b, b in a)
     """
     if metric not in ASSIGN_METRICS:
         raise ValueError(f"Unknown assignment metric '{metric}'; use one of {ASSIGN_METRICS}.")
@@ -144,7 +138,7 @@ def _merged_distance(
 # ----------------------------
 
 def rescale_mh(mh: sm.MinHash, desired_scaled: int) -> sm.MinHash:
-    """Downsample to desired_scaled. Only possible if desired_scaled >= mh.scaled (coarser)."""
+    """Downsample mh to desired_scaled; raise an error if desired_scaled is smaller than mh.scaled."""
     if mh.num:  # num-based sketches cannot be converted to scaled
         raise ValueError("Cannot convert a fixed-num MinHash to scaled.")
     if mh.scaled == desired_scaled:
@@ -193,7 +187,7 @@ def build_minhash_map(
 
 
 def _get_cluster_from_signature(sig: sm.SourmashSignature) -> int:
-    """Extract an integer cluster label from the signature's 'filename' field."""
+    """Return the integer cluster label stored in the signature's filename field."""
     try:
         cluster_str = (sig.filename or "").strip()
     except Exception:
@@ -268,9 +262,9 @@ def _as_signature(
     obj: Union[SourmashSignature, sm.MinHash, Dict[str, Any]]
     ) -> SourmashSignature:
     """
-    Normalize different input shapes to a SourmashSignature, ensuring:
-      - signature.name = sid
-      - signature.filename = str(cluster)   <-- cluster goes here
+    Convert a signature, MinHash or record to a SourmashSignature.
+    Set name to sid and filename to the cluster label.
+    Write mh_raw instead of mh when a record has both.
     """
     # Extract minhash and cluster depending on input type
     if isinstance(obj, SourmashSignature):
@@ -280,7 +274,8 @@ def _as_signature(
         mh = obj
         cluster = None
     elif isinstance(obj, dict):
-        mh = obj.get("mh")
+        # Write the unfiltered sketch when global hash filtering replaced mh
+        mh = obj.get("mh_raw", obj.get("mh"))
         cluster = obj.get("cluster", None)
     else:
         raise TypeError(f"{sid}: unsupported object type {type(obj)}")
@@ -306,10 +301,7 @@ def write_sigs(
     *,
     subdir: str = "sigs"
 ) -> None:
-    """
-    Save {sample_id: obj} to outdir/<subdir>/<sample_id>.sig
-    with cluster label encoded in Signature.filename and abundance preserved.
-    """
+    """Write each sketch to outdir/subdir/<sample_id>.sig.gz with its cluster label and abundances."""
     sig_dir = os.path.join(outdir, subdir)
     os.makedirs(sig_dir, exist_ok=True)
 

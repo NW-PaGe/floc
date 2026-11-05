@@ -40,19 +40,11 @@ def assign_to_cluster(
     min_member_frac: float = 0.0,
     outdir: Optional[str] = None,
 ) -> Tuple[MHMap, MHMap]:
-    """Assign new samples to the closest existing cluster within `threshold`.
-
-    Each cluster is represented by the merge of its members' sketches. `metric`
-    sets how a sample is compared with that merged sketch (see
-    sm_ops._merged_distance): 'query' (default, sample-in-cluster containment),
-    or the 'min', 'max' or 'avg' of the containments in both directions.
-
-    Only hashes present in at least `min_member_frac` of a cluster's members are
-    kept in its merged sketch, so k-mers carried by only a few members do not
-    count towards the comparison. 0 keeps every hash.
-
-    If `outdir` is given, every sample-cluster comparison is appended to
-    assign.csv there (id1 = sample, id2 = cluster label).
+    """
+    Assign each new sample to the closest existing cluster within threshold.
+    Merge each cluster's member sketches and filter hashes observed in fewer than min_member_frac of members; 0 keeps every hash.
+    Compare each sample to each merged sketch with metric (see sm_ops._merged_distance).
+    Append each comparison to assign.csv in outdir when outdir is set.
     """
     if not mh_clust:
         return {}, {qid: qinfo for qid, qinfo in mh_fx.items()}
@@ -98,8 +90,10 @@ def assign_to_cluster(
 
 
 def _merge_cluster(clabel: str, members: MHMap, min_member_frac: float = 0.0):
-    """Merge a cluster's member sketches, keeping only hashes found in at least
-    `min_member_frac` of the members (abundances are summed across members)."""
+    """
+    Merge a cluster's member sketches and sum abundances across members.
+    Filter hashes observed in fewer than min_member_frac of members.
+    """
     mhs = [rec['mh'] for rec in members.values()]
     n = len(mhs)
     counts: Dict[int, List[int]] = {}
@@ -167,11 +161,10 @@ def create_new_clusters(
     min_member_frac: float = 0.0,
     outdir: Optional[str] = None,
 ) -> ClusterMap:
-    """Cluster samples in batches with DBSCAN, assigning leftover samples to the
-    clusters made so far (using `metric` and `min_member_frac`) after each batch.
-
-    If `outdir` is given, each batch's pairwise comparisons are appended to
-    dbscan.csv and the between-batch assignments to assign.csv.
+    """
+    Cluster samples in batches with DBSCAN.
+    After each batch, assign leftover samples to existing clusters with metric and min_member_frac.
+    Append batch comparisons to dbscan.csv and assignments to assign.csv in outdir when outdir is set.
     """
     mh_clust: ClusterMap = {} if existing is None else {str(k): dict(v) for k, v in existing.items()}
 
@@ -232,7 +225,7 @@ def create_new_clusters(
 
 
 def _pcoa_from_dist(D: np.ndarray, n_components: int = 2):
-    """Classical MDS / PCoA from a (n x n) distance matrix D."""
+    """Compute classical MDS (PCoA) coordinates from an n x n distance matrix."""
     if D.shape[0] != D.shape[1]:
         raise ValueError("Distance matrix must be square.")
     if not np.allclose(D, D.T, atol=1e-12):
@@ -270,7 +263,7 @@ def _pcoa_from_dist(D: np.ndarray, n_components: int = 2):
 
 
 def _cluster_labels(ids: List[str], mh_map: MHMap) -> List[str]:
-    """Extract cluster label strings for a list of IDs, falling back to 'unassigned'."""
+    """Return the cluster label for each ID, or 'unassigned' when it has none."""
     return [
         str(mh_map[sid]["cluster"]) if mh_map[sid].get("cluster") is not None else "unassigned"
         for sid in ids
@@ -285,7 +278,7 @@ def pcoa_plot(
     title: str = "PCoA of MinHash distances",
     save_html: Optional[str] = None,
 ) -> go.Figure:
-    """Interactive Plotly PCoA (Classical MDS) plot for all samples in mh_map."""
+    """Plot every sample in mh_map as an interactive Plotly PCoA."""
     ids = list(mh_map.keys())
     if len(ids) < 2:
         logging.warning("Two or more samples required to create PCoA plot!")
@@ -346,10 +339,7 @@ def nj_tree(
     save_html: Optional[str] = None,
     save_newick: Optional[str] = None,
 ) -> go.Figure:
-    """
-    Build a Neighbor-Joining tree and render it as an interactive Plotly figure.
-    Requires: pip install biopython
-    """
+    """Build a neighbor-joining tree and plot it as an interactive Plotly figure."""
     from Bio import Phylo
     from Bio.Phylo.TreeConstruction import DistanceMatrix, DistanceTreeConstructor
 
