@@ -2,6 +2,35 @@
 
 All notable changes to floc are documented in this file.
 
+## [1.2.4] - 2026-11-06
+
+### Changed
+- The default `--distance` is now `0.1` (was `0.03`).
+- The default `--assign-hash-freq` is now `0.6` (was `0.5`).
+- Both defaults come from an evaluation of how consistent clusters are when the
+  same samples are added in different batch sizes (1, 10, 50, or all at once)
+  across *E. coli*, *A. baumannii* and *S. aureus*. At `--distance 0.1
+  --assign-hash-freq 0.6`, no pair of samples within 100 SNPs was split in any
+  run, and at most 2 samples per run were placed differently from the
+  single-batch reference. See `docs/evals/dist_vs_assign-hash-freq/`.
+  `--distance 0.075` with `--assign-hash-freq 0.6` is a good choice where
+  tighter clusters are wanted.
+
+### Added
+- floc now logs a warning when `--distance` is below 0.075 or
+  `--assign-hash-freq` is below 0.6. Below these values, cluster assignments may
+  differ between runs that add samples in different batch sizes.
+- Evaluation report and supporting data:
+  `docs/evals/dist_vs_assign-hash-freq/`.
+- Project logo in the README.
+
+### Upgrading
+- floc does not record the settings used to build an existing output
+  directory. Databases built with the old defaults should keep being updated
+  with `--distance 0.03 --assign-hash-freq 0.5` to stay consistent. Those runs
+  will now print the warnings above.
+- To reproduce v1.2.3 results, use `--distance 0.03 --assign-hash-freq 0.5`.****
+
 ## [1.2.3] - 2026-11-02
 
 ### Changed

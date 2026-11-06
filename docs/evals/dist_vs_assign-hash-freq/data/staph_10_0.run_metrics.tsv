@@ -1,0 +1,5 @@
+batch_size	is_reference	n_batches	samples_clustered	samples_with_distances	clusters	clusters_2plus	singletons	intra_n	intra_min	intra_median	intra_mean	intra_max	inter_n	inter_min	inter_median	inter_mean	inter_max	pairs_snps_below_100	pairs_snps_below_100_split	pairs_snps_below_100_split_frac	samples_in_split_pairs	pairs_missing_distance
+100	True	1	100	100	16	7	9	1439	1	389	531.91	1528	3511	6194	10137	12769.2	19232	4	0	0	0	0
+1	False	100	100	100	18	9	9	838	1	394.5	522.749	1528	4112	141	10014	10982.5	19232	4	0	0	0	0
+10	False	10	100	100	18	9	9	992	1	348	503.73	1528	3958	145	10038.5	11394.2	19232	4	0	0	0	0
+50	False	2	100	100	17	8	9	1351	1	363	520.861	1528	3599	281	10109	12474.1	19232	4	0	0	0	0

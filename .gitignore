@@ -1,0 +1,31 @@
+# Build artifacts (the stale build/ that 1.2.3 removed)
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+*.whl
+
+# Python caches
+__pycache__/
+*.py[cod]
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# Nextflow (if floc_val or other pipelines are ever run from this checkout)
+.nextflow*
+work/
