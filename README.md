@@ -16,7 +16,7 @@ pip install --no-build-isolation floc/
 ### With Docker
 ```
 docker run --rm -v "$PWD":/work -w /work \
-    public.ecr.aws/o8h2f0o1/floc:1.2.3 \
+    public.ecr.aws/o8h2f0o1/floc:1.2.4 \
     floc --help
 ```
 
@@ -38,7 +38,7 @@ options:
   -o OUTDIR, --outdir OUTDIR
                         Output directory
   -d DISTANCE, --distance DISTANCE
-                        Distance threshold used to create clusters (default: 0.03)
+                        Distance threshold used to create clusters (default: 0.1)
   --ksize KSIZE         k-mer size
   --scaled SCALED       Scaling factor for signatures
   --batch BATCH         Number of sequences to cluster per batch
@@ -58,7 +58,7 @@ options:
                         (default: avg)
   --assign-hash-freq ASSIGN_HASH_FREQ
                         When assigning new samples, represent each existing cluster only by hashes found in at least
-                        this fraction of its members; 0 uses every hash (default: 0.5)
+                        this fraction of its members; 0 uses every hash (default: 0.6)
   --dbscan-metric {avg,min,max}
                         How the containments in both directions between two samples are combined into the distance
                         used by DBSCAN; also used for --pairwise and --plot (default: avg)
