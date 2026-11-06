@@ -13,6 +13,10 @@ from .cluster import group_clusters, assign_to_cluster, create_new_clusters, pco
 from .qc import global_containment
 from . import __version__
 
+# Below these values, cluster assignments may depend on batch size
+MIN_CONSISTENT_DISTANCE = 0.075
+MIN_CONSISTENT_ASSIGN_HASH_FREQ = 0.6
+
 
 def build_parser():
     p = argparse.ArgumentParser(
@@ -56,6 +60,18 @@ def main(argv=None):
 
     args_smry = ', '.join([f"{k}={v}" for k, v in vars(args).items() if k not in ['input', 'outdir']])
     logger.info(f"args: {args_smry}")
+
+    # Warn about settings below the evaluated minimums
+    if args.distance < MIN_CONSISTENT_DISTANCE:
+        logger.warning(
+            f"--distance {args.distance} is below {MIN_CONSISTENT_DISTANCE}; "
+            "cluster assignments may be inconsistent between runs that add samples in different batch sizes."
+        )
+    if args.assign_hash_freq < MIN_CONSISTENT_ASSIGN_HASH_FREQ:
+        logger.warning(
+            f"--assign-hash-freq {args.assign_hash_freq} is below {MIN_CONSISTENT_ASSIGN_HASH_FREQ}; "
+            "cluster assignments may be inconsistent between runs that add samples in different batch sizes."
+        )
 
     try:
         dist_cache = DistanceCache(metric=args.dbscan_metric)
