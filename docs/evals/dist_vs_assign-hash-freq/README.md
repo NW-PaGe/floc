@@ -1,12 +1,17 @@
 # Evaluation: distance vs. assign hash frequency
-When samples are added to an existing floc database, each new sample is compared with one merged sketch per cluster rather than with every sample. `--assign-hash-freq` sets which hashes go into that merged sketch: only hashes found in at least that fraction of the cluster's members. A value of 0 keeps every hash from every member (the union), while 0.6 keeps the hashes shared by most members (a consensus).
+## Background
+When samples are added to an existing floc database, each new sample is compared with one merged sketch per cluster rather than with every sample. Before floc v1.2.3, that merged sketch always kept every hash from every member of the cluster (the union). There was no way to change this.
 
-This evaluation tests whether that setting changes how consistent the clusters are when the same samples are added in batches of different sizes, at three distance thresholds.
+`--assign-hash-freq` was added in v1.2.3 after we noticed that clusters were not consistent when samples were added through this assignment step. The same samples could end up in different clusters depending on whether they were clustered together in one batch or added to an existing database a few at a time. In some cases, a new sample started its own cluster even though an identical sample was already in the database.
+
+`--assign-hash-freq` sets which hashes go into each cluster's merged sketch: only hashes found in at least that fraction of the cluster's members. A value of 0 keeps every hash from every member, which is the behavior before v1.2.3. A value of 0.6 keeps the hashes shared by most members (a consensus).
+
+This evaluation was designed to confirm that the assignment step was the source of the inconsistency, and to test whether limiting the merged sketch with `--assign-hash-freq` fixes it. It adds the same samples in batches of different sizes and compares the final clusters with a reference run in which all samples are clustered at once. It does this at both assign hash frequencies and at three distance thresholds, which also set the new defaults in v1.2.4.
 
 ## Summary
 - **Recommended for consistent clustering: `--distance 0.1 --assign-hash-freq 0.6`.** No pair of samples within 100 SNPs was separated in any run, and at most 2 samples per run were placed differently from the reference. Every _A. baumannii_ and _S. aureus_ run matched its reference exactly.
 - **For smaller clusters: `--distance 0.075 --assign-hash-freq 0.6`.** No close pairs were separated, and at most 5 samples per run were placed differently from the reference. The most diverse _E. coli_ cluster held 2,168 SNPs, compared with 4,134 at 0.1.
-- **Do not use an assign hash frequency of 0.** At every distance it separated identical _A. baumannii_ samples (0 SNPs apart), separating up to 579 of the 1,140 close pairs. It reassigned up to 58 samples in a single run.
+- **The inconsistency comes from the assignment step, and `--assign-hash-freq 0.6` fixes it at distances of 0.075 and above.** With an assign hash frequency of 0 (the behavior before v1.2.3), every distance separated identical _A. baumannii_ samples (0 SNPs apart), separating up to 579 of the 1,140 close pairs, and up to 58 samples were reassigned in a single run. Do not use an assign hash frequency of 0.
 - **Avoid a distance of 0.05** at either assign hash frequency. Even at 0.6, it separated up to 75 close _A. baumannii_ pairs, including identical samples.
 
 Pairs that floc separated were judged by their SNP distance. Separating samples within 10 SNPs of each other rules a combination out. Separating samples within 100 SNPs is a major penalty. The table combines all three organisms; worst run means the run (batch size 1, 10, 50 or the reference) with the most separated pairs or reassigned samples.
@@ -22,12 +27,12 @@ Pairs that floc separated were judged by their SNP distance. Separating samples 
 
 "None" means no pair within 100 SNPs was separated in any run. See [Metrics](#metrics) for definitions.
 
-### Why an assign hash frequency of 0 fails
-The assign hash frequency is only used when new samples are added to existing clusters; samples clustered together in one batch are compared with each other directly. That is why the reference run (all 100 samples in one batch) is identical at both values, and why only the smaller batch sizes differ.
+### Why the assignment step was inconsistent, and how the assign hash frequency fixes it
+The assign hash frequency is only used when new samples are added to existing clusters; samples clustered together in one batch are compared with each other directly. That is why the reference run (all 100 samples in one batch) is identical at both values, and why only the smaller batch sizes differ. It also confirms that the inconsistency came from the assignment step: when that step is not used, both values give the same clusters.
 
-With a value of 0, a cluster's merged sketch is the union of every member's hashes, so it grows with each member and with the cluster's diversity. The default assign metric (`avg`) averages two containments: how much of the sample is in the cluster sketch, and how much of the cluster sketch is in the sample. The second shrinks as the union grows, so a large or diverse cluster looks farther away from a new sample, even when the new sample is identical to one of its members. New samples then start new clusters instead of joining the one they belong in. This hits _A. baumannii_ hardest because most of its samples belong to one large, closely related group.
+With a value of 0, as in floc before v1.2.3, a cluster's merged sketch is the union of every member's hashes, so it grows with each member and with the cluster's diversity. The default assign metric (`avg`) averages two containments: how much of the sample is in the cluster sketch, and how much of the cluster sketch is in the sample. The second shrinks as the union grows, so a large or diverse cluster looks farther away from a new sample, even when the new sample is identical to one of its members. New samples then start new clusters instead of joining the one they belong in. Because the cluster sketch depends on which samples were already in the database, the result depends on the order and batch size in which samples were added. This hits _A. baumannii_ hardest because most of its samples belong to one large, closely related group.
 
-A value of 0.6 keeps the merged sketch close to the size of one genome, so the distance to a cluster does not depend on how large or diverse it has become.
+A value of 0.6 keeps only the hashes that most members share, so the merged sketch stays close to the size of one genome. The distance from a new sample to a cluster then does not depend on how large or diverse the cluster has become, and adding samples one at a time gives nearly the same clusters as clustering them all at once.
 
 ## Datasets
 The same 100 samples per organism were used for every combination.
@@ -39,7 +44,14 @@ The same 100 samples per organism were used for every combination.
 |_Staphylococcus aureus_|100|BioProject [PRJNA533550](https://www.ncbi.nlm.nih.gov/bioproject/PRJNA533550)|Randomly selected from the BioProject's assembly list with `tail -n +2 assemblies.tsv \| shuf \| head -n 100`|
 
 ## Design
-Each combination was run with [floc_val](https://github.com/DOH-JDJ0303/floc_val), a Nextflow pipeline that runs floc on the same assemblies at several batch sizes and compares the final clusters with each other and with pairwise SNP distances from [SKA2](https://github.com/bacpop/ska.rust). Samples are added in the same seeded random order at every batch size. The run that adds all samples in a single batch (batch size 100) is the reference.
+Each combination was run with [floc_val](https://github.com/DOH-JDJ0303/floc_val), a Nextflow pipeline that runs floc on the same assemblies at several batch sizes and compares the final clusters with each other and with pairwise SNP distances from [SKA2](https://github.com/bacpop/ska.rust).
+
+The design isolates the assignment step:
+- **Reference:** the run that adds all samples in a single batch (batch size 100) clusters every sample directly and never uses the assignment step. Any difference from this run comes from how samples were added later.
+- **Batch sizes 1, 10 and 50:** later batches are added to an existing database through the assignment step. Batch size 1 uses it most, as every sample after the first is assigned to existing clusters, and mirrors a database updated one sample at a time.
+- **Same order:** samples are added in the same seeded random order at every batch size, so differences between runs come from batch size alone.
+- **Assign hash frequency 0 vs. 0.6:** 0 reproduces the merged sketch used before v1.2.3, and 0.6 tests the new consensus sketch. Comparing the two at each distance shows whether the new option removes the inconsistency.
+- **SNP distances:** clusters that differ from the reference are not necessarily wrong, so separated pairs are also judged by their SNP distance. Separating samples that are only a few SNPs apart is a clear error.
 
 |Setting|Values|
 |-|-|
